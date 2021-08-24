@@ -9,6 +9,7 @@
 #include "../engine/ResourceLoader.h"
 #include "../engine/renderer/Util.h"
 #include "../engine/math/Transform.h"
+#include "../engine/util/Sphere.h"
 
 static void MakeWindow(feWindow& window, unsigned char version, bool useNewStuff, bool visible)
 {
@@ -51,20 +52,26 @@ public:
 		feRenderUtil::InitDefaults();
 		feRenderUtil::SetupDebugLogger();
 
-		float data[] =
+		Sphere sphere(1, 36, 18, false);
+
 		{
-			-1, -1, 0,
-			1, -1, 0,
-			0, 1, 0
-		};
+			feBufferObjectCreateInfo info;
+			info.target = GL_ARRAY_BUFFER;
+			info.data = sphere.getVertices();
+			info.size = sphere.getVertexSize();
 
-		feBufferObjectCreateInfo info;
-		info.target = GL_ARRAY_BUFFER;
-		info.data = data;
-		info.size = sizeof(data);
+			m_Vbo = info;
+		}
 
-		m_Vbo = info;
+		{
+			feBufferObjectCreateInfo info;
+			info.target = GL_ELEMENT_ARRAY_BUFFER;
+			info.data = sphere.getIndices();
+			info.size = sphere.getIndexSize();
 
+			m_Ibo = info;
+		}
+		
 		feVertexArrayCreateInfoBufferObjectInfo vaoVboInfo;
 		vaoVboInfo.buffer = &m_Vbo;
 		vaoVboInfo.stride = 3 * sizeof(float);
@@ -78,10 +85,11 @@ public:
 		feVertexArrayCreateInfo vaoInfo;
 		vaoInfo.attributeInfos = &vaoAttrInfo;
 		vaoInfo.attributeInfoCount = 1;
-		vaoInfo.count = 3;
+		vaoInfo.count = sphere.getIndexCount();
 		vaoInfo.mode = GL_TRIANGLES;
 		vaoInfo.vertexBufferInfos = &vaoVboInfo;
 		vaoInfo.vertexBufferInfoCount = 1;
+		vaoInfo.indexBuffer = &m_Ibo;
 
 		m_Vao = vaoInfo;
 
@@ -139,6 +147,7 @@ private:
 
 	feVertexArray m_Vao;
 	feBufferObject m_Vbo;
+	feBufferObject m_Ibo;
 	feProgram m_Program;
 };
 
