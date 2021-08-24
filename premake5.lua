@@ -1,6 +1,6 @@
 workspace "FoxoEngine2"
 	architecture "x86_64"
-	startproject "FoxoEngine2"
+	startproject "Engine"
 	configurations { "Debug", "Release", "Dist" }
 
 	flags
@@ -11,8 +11,8 @@ workspace "FoxoEngine2"
 outputbindir = "bin/%{cfg.system}-%{cfg.architecture}-%{cfg.buildcfg}/%{prj.name}"
 outputobjdir = "bin-int/%{cfg.system}-%{cfg.architecture}-%{cfg.buildcfg}/%{prj.name}"
 
-project "FoxoEngine2"
-	location "FoxoEngine2"
+project "Engine"
+	location "Engine"
 	language "C++"
 	cppdialect "C++17"
 
@@ -43,8 +43,7 @@ project "FoxoEngine2"
 	links
 	{
 		"glfw",
-		"glad2",
-		"imgui"
+		"glad2"
 	}
 
 	filter "system:windows"
