@@ -100,10 +100,10 @@ public:
 		MakeWindow(m_Window, config.width, config.height, version, true, true);
 
 		feRenderUtil::LogOpenGLInfo();
-		feRenderUtil::InitDefaults();
+		feRenderUtil::InitDefaults(0.7f, 0.8f, 0.9f, 1.0f);
 		feRenderUtil::SetupDebugLogger();
 
-		Sphere sphere;
+		Sphere sphere = Sphere(1, 36, 18, false);
 
 		{
 			feBufferObjectCreateInfo info;
@@ -194,13 +194,22 @@ public:
 
 		if (m_Window.ShouldClose()) Stop();
 
-		feRenderUtil::Viewport(m_Window);
+		auto [w, h] = m_Window.GetViewportSize();
+
+		// Don't render if the window is iconified
+		if (w == 0 || h == 0) return;
+
+		feRenderUtil::Viewport(0, 0, w, h);
 		feRenderUtil::Clear();
 
 		glm::mat4 proj = glm::perspective(glm::radians(80.f), m_Window.GetAspect(), 0.1f, 100.0f);
 
+		m_Transform.pos = { 0, 0, -3 };
+		m_Transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
+
 		m_Program.Bind();
-		m_Program.Uniform3f("u_Color", { 0, .1f, .5f });
+		m_Program.Uniform3f("u_Color", { 1.0f, 0.5f, 0.0f });
+		m_Program.UniformMat4f("u_Model", m_Transform.GetMatrix());
 		m_Program.UniformMat4f("u_Proj", proj);
 		m_Vao.Bind();
 		m_Vao.Draw();
@@ -221,6 +230,8 @@ private:
 	feProgram m_Program;
 
 	ScriptState m_Script;
+
+	feTransform m_Transform;
 };
 
 feApplication* feApplication::CreateInstance()

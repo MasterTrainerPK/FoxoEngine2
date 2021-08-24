@@ -96,7 +96,17 @@ std::pair<int, int> feWindow::GetSize() const
 {
 	if (!m_Handle) return { 0, 0 };
 	int w, h;
+	glfwGetWindowSize(m_Handle, &w, &h);
+
+	return { w, h };
+}
+
+std::pair<int, int> feWindow::GetViewportSize() const
+{
+	if (!m_Handle) return { 0, 0 };
+	int w, h;
 	glfwGetFramebufferSize(m_Handle, &w, &h);
+
 	return { w, h };
 }
 
@@ -104,6 +114,13 @@ float feWindow::GetAspect() const
 {
 	if (!m_Handle) return 0;
 	auto [w, h] = GetSize();
+	return static_cast<float>(w) / static_cast<float>(h);
+}
+
+float feWindow::GetViewportAspect() const
+{
+	if (!m_Handle) return 0;
+	auto [w, h] = GetViewportSize();
 	return static_cast<float>(w) / static_cast<float>(h);
 }
 

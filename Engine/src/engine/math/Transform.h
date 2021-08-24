@@ -9,6 +9,7 @@ class feTransform final
 public:
 	glm::mat4 GetMatrix() const;
 	void SetMatrix(const glm::mat4& mat);
+	void Rotate(float angle, const glm::vec3& axis);
 public:
 	glm::vec3 pos = glm::vec3(0, 0, 0);
 	glm::quat quat = glm::quat(0, 0, 0, 0);

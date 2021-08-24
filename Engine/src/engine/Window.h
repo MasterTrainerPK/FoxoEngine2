@@ -43,6 +43,8 @@ public:
 	[[nodiscard]] bool ShouldClose() const;
 	[[nodiscard]] std::pair<int, int> GetSize() const;
 	[[nodiscard]] float GetAspect() const;
+	[[nodiscard]] std::pair<int, int> GetViewportSize() const;
+	[[nodiscard]] float GetViewportAspect() const;
 	void SetUserPointer(void* ptr) const;
 	void SetInputMode(int mode, int value) const;
 	void MakeCenter() const;

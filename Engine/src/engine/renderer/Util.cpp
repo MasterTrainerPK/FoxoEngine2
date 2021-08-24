@@ -84,20 +84,14 @@ namespace feRenderUtil
 		glViewport(x, y, w, h);
 	}
 
-	void Viewport(const feWindow& window)
-	{
-		auto [w, h] = window.GetSize();
-		Viewport(0, 0, w, h);
-	}
-
 	void Clear()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	void InitDefaults()
+	void InitDefaults(float r, float g, float b, float a)
 	{
-		glClearColor(1, 0, 0, 0);
+		glClearColor(r, g, b, a);
 		glClearDepth(1);
 		glDepthFunc(GL_LEQUAL);
 		glEnable(GL_CULL_FACE);

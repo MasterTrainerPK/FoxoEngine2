@@ -19,3 +19,15 @@ void feTransform::SetMatrix(const glm::mat4& mat)
 
 	glm::decompose(mat, sca, quat, pos, skew, perspective);
 }
+
+void feTransform::Rotate(float angle, const glm::vec3& axis)
+{
+	// Preferred way to do this, this function doesn't work for whatever reason
+	// quat = glm::rotate(quat, angle, axis);
+
+	// Performs a rotation on the entire transform, not used because it exposes position and scaling
+	// SetMatrix(glm::rotate(GetMatrix(), angle, axis)); 
+
+	// Convers the rotation to a matrix and uses that to apply the quaternion
+	quat = glm::normalize(glm::toQuat(glm::rotate(glm::toMat4(quat), angle, axis)));
+}

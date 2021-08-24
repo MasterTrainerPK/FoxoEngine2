@@ -1,16 +1,13 @@
 #pragma once
 
-#include "../Window.h"
-
 namespace feRenderUtil
 {
 	void ClearLoadedFlag();
 	unsigned char GetSupportedVersion();
 
 	void Viewport(int x, int y, int w, int h);
-	void Viewport(const feWindow& window);
 	void Clear();
-	void InitDefaults();
+	void InitDefaults(float r, float g, float b, float a);
 	void LogOpenGLInfo();
 	void SetupDebugLogger();
 };
