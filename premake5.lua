@@ -256,7 +256,13 @@ project "lua"
 	files
 	{
 		"%{prj.location}/src/*.c",
-		"%{prj.location}/src/*.h"
+		"%{prj.location}/src/*.h",
+		"%{prj.location}/src/*.hpp"
+	}
+
+	removefiles
+	{
+		"%{prj.location}/src/lua.c"
 	}
 
 	filter "system:windows"
