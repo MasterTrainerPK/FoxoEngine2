@@ -1,5 +1,7 @@
 #include <glad/gl.h>
 
+#include <lua.hpp>
+
 #include "../engine/Application.h"
 #include "../engine/Window.h"
 #include "../engine/Log.h"
@@ -29,6 +31,31 @@ static void MakeWindow(feWindow& window, unsigned char version, bool useNewStuff
 	feContext::Load(window);
 	feRenderUtil::ClearLoadedFlag();
 }
+
+class ScriptState final
+{
+public:
+	ScriptState()
+	{
+		L = luaL_newstate();
+		luaL_openlibs(L);
+	}
+
+	void Run()
+	{
+		if (luaL_dofile(L, "res/scripts/game.lua"))
+		{
+			feLog::Error(lua_tostring(L, -1));
+		}
+	}
+
+	~ScriptState()
+	{
+		lua_close(L);
+	}
+private:
+	lua_State* L;
+};
 
 class Game : public feApplication
 {
@@ -122,6 +149,8 @@ public:
 		programInfo.debugName = "Main Program";
 
 		m_Program = programInfo;
+
+		m_Script.Run();
 	}
 	
 	virtual void Update() override
@@ -155,6 +184,8 @@ private:
 	feBufferObject m_Vbo;
 	feBufferObject m_Ibo;
 	feProgram m_Program;
+
+	ScriptState m_Script;
 };
 
 feApplication* feApplication::CreateInstance()

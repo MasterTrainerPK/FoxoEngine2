@@ -32,7 +32,8 @@ project "Engine"
 		"%{wks.location}/vendor/glfw/include",
 		"%{wks.location}/vendor/glad2/include",
 		"%{wks.location}/vendor/glm",
-		"%{wks.location}/vendor/spdlog/include"
+		"%{wks.location}/vendor/spdlog/include",
+		"%{wks.location}/vendor/lua-5.4.3/src"
 	}
 
 	defines
@@ -43,7 +44,8 @@ project "Engine"
 	links
 	{
 		"glfw",
-		"glad2"
+		"glad2",
+		"lua"
 	}
 
 	filter "system:windows"
@@ -226,6 +228,35 @@ project "glad2"
 	includedirs
 	{
 		"%{prj.location}/include"
+	}
+
+	filter "system:windows"
+		systemversion "latest"
+
+	filter "configurations:Debug"
+		runtime "Debug"
+		symbols "on"
+
+	filter "configurations:Release"
+		runtime "Release"
+		optimize "on"
+
+	filter "configurations:Dist"
+		runtime "Release"
+		optimize "on"
+
+project "lua"
+	location "vendor/lua-5.4.3"
+	kind "StaticLib"
+	language "C++"
+
+	targetdir (outputbindir)
+	objdir (outputobjdir)
+
+	files
+	{
+		"%{prj.location}/src/*.c",
+		"%{prj.location}/src/*.h"
 	}
 
 	filter "system:windows"

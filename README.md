@@ -6,3 +6,4 @@ Building Dependencies
 - GLM 0.9.9.8
 - SPDLOG 1.9.2
 - GLAD2 4.6 Core w/ EXT_texture_filter_anisotropic
+- LUA 5.4.3
