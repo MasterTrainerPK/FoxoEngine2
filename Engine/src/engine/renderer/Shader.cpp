@@ -20,7 +20,7 @@ feShader::feShader(const feShaderCreateInfo& info)
 	std::vector<const char*> sources = std::vector<const char*>(info.sourceCount);
 	for (size_t i = 0; i < info.sourceCount; ++i) sources[i] = info.sources[i].data();
 
-	glShaderSource(m_Handle, info.sourceCount, sources.data(), nullptr);
+	glShaderSource(m_Handle, static_cast<GLsizei>(info.sourceCount), sources.data(), nullptr);
 
 	glCompileShader(m_Handle);
 

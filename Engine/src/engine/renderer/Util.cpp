@@ -118,7 +118,7 @@ namespace feRenderUtil
 		GLint numExt;
 		glGetIntegerv(GL_NUM_EXTENSIONS, &numExt);
 
-		for (unsigned int i = 0; i < numExt; ++i)
+		for (int i = 0; i < numExt; ++i)
 		{
 			const GLubyte* ext = glGetStringi(GL_EXTENSIONS, i);
 			feLog::Debug((const char*) ext);

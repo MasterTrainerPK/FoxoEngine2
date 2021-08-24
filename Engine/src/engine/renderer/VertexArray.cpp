@@ -31,8 +31,8 @@ feVertexArray::feVertexArray(const feVertexArrayCreateInfo& info)
 		}
 
 		bufferInfo->buffer->Bind();
-		glEnableVertexAttribArray(i);
-		glVertexAttribPointer(i, attributeInfo->size, attributeInfo->type, GL_FALSE, bufferInfo->stride, (const void*) attributeInfo->offset);
+		glEnableVertexAttribArray(static_cast<GLuint>(i));
+		glVertexAttribPointer(static_cast<GLuint>(i), attributeInfo->size, attributeInfo->type, GL_FALSE, bufferInfo->stride, (const void*) (intptr_t) attributeInfo->offset);
 	}
 
 	if (info.indexBuffer) info.indexBuffer->Bind();
