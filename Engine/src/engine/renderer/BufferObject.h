@@ -5,6 +5,8 @@ struct feBufferObjectCreateInfo final
 	unsigned int target = 0;
 	const void* data = nullptr;
 	size_t size = 0;
+
+	const char* debugName = nullptr;
 };
 
 class feBufferObject final

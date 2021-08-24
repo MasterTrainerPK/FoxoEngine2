@@ -5,6 +5,7 @@
 #include <glad/gl.h>
 
 #include "../Log.h"
+#include "Util.h"
 
 feVertexArray::feVertexArray(unsigned int handle)
 	: m_Handle(handle)
@@ -44,6 +45,8 @@ feVertexArray::feVertexArray(const feVertexArrayCreateInfo& info)
 	m_Count = info.count;
 	m_Mode = info.mode;
 	m_HasIndexBuffer = info.indexBuffer != nullptr;
+
+	if (info.debugName && feRenderUtil::GetSupportedVersion() >= 43) glObjectLabel(GL_VERTEX_ARRAY, m_Handle, -1, info.debugName);
 
 	feLog::Trace("Created VertexArray");
 }

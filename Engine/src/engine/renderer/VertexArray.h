@@ -25,6 +25,8 @@ struct feVertexArrayCreateInfo final
 	feBufferObject* indexBuffer = nullptr;
 	unsigned int count = 0;
 	unsigned int mode = 0;
+
+	const char* debugName = nullptr;
 };
 
 class feVertexArray final

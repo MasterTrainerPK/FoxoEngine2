@@ -59,6 +59,7 @@ public:
 			info.target = GL_ARRAY_BUFFER;
 			info.data = sphere.getVertices();
 			info.size = sphere.getVertexSize();
+			info.debugName = "Sphere positions";
 
 			m_Vbo = info;
 		}
@@ -68,6 +69,7 @@ public:
 			info.target = GL_ELEMENT_ARRAY_BUFFER;
 			info.data = sphere.getIndices();
 			info.size = sphere.getIndexSize();
+			info.debugName = "Sphere indices";
 
 			m_Ibo = info;
 		}
@@ -90,6 +92,7 @@ public:
 		vaoInfo.vertexBufferInfos = &vaoVboInfo;
 		vaoInfo.vertexBufferInfoCount = 1;
 		vaoInfo.indexBuffer = &m_Ibo;
+		vaoInfo.debugName = "Sphere vao";
 
 		m_Vao = vaoInfo;
 
@@ -103,10 +106,12 @@ public:
 		std::string_view view = vertSrc;
 		shaderInfo.sources = &view;
 		shaderInfo.sourceCount = 1;
+		shaderInfo.debugName = "Shader Vertex";
 
 		shaders[0] = feShader(shaderInfo);
 
 		shaderInfo.type = GL_FRAGMENT_SHADER;
+		shaderInfo.debugName = "Shader Fragment";
 		view = fragSrc;
 
 		shaders[1] = feShader(shaderInfo);
@@ -114,6 +119,7 @@ public:
 		feProgramCreateInfo programInfo;
 		programInfo.shaders = shaders;
 		programInfo.shaderCount = 2;
+		programInfo.debugName = "Main Program";
 
 		m_Program = programInfo;
 	}

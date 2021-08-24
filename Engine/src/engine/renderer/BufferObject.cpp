@@ -5,6 +5,7 @@
 #include <glad/gl.h>
 
 #include "../Log.h"
+#include "Util.h"
 
 feBufferObject::feBufferObject(unsigned int handle, unsigned int target)
 	: m_Handle(handle), m_Target(target)
@@ -19,6 +20,8 @@ feBufferObject::feBufferObject(const feBufferObjectCreateInfo& info)
 	glBindBuffer(m_Target, m_Handle);
 	glBufferData(m_Target, info.size, info.data, GL_STATIC_DRAW);
 	glBindBuffer(m_Target, 0);
+
+	if (info.debugName && feRenderUtil::GetSupportedVersion() >= 43) glObjectLabel(GL_BUFFER, m_Handle, -1, info.debugName);
 
 	feLog::Trace("Created BufferObject");
 }

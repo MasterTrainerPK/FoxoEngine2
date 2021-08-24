@@ -13,6 +13,8 @@ struct feShaderCreateInfo final
 	unsigned int type = 0;
 	std::string_view* sources = nullptr;
 	size_t sourceCount = 0;
+
+	const char* debugName = nullptr;
 };
 
 class feShader final
@@ -37,6 +39,8 @@ struct feProgramCreateInfo final
 {
 	feShader* shaders = nullptr;
 	size_t shaderCount = 0;
+
+	const char* debugName = nullptr;
 };
 
 class feProgram final

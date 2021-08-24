@@ -7,6 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "../Log.h"
+#include "Util.h"
 
 feShader::feShader(unsigned int handle)
 	: m_Handle(handle)
@@ -37,6 +38,8 @@ feShader::feShader(const feShaderCreateInfo& info)
 
 		feLog::Error("Shader compilation failed: {}", message.get());
 	}
+
+	if (info.debugName && feRenderUtil::GetSupportedVersion() >= 43) glObjectLabel(GL_SHADER, m_Handle, -1, info.debugName);
 
 	feLog::Trace("Created Shader");
 }
@@ -91,6 +94,8 @@ feProgram::feProgram(const feProgramCreateInfo& info)
 
 		feLog::Error("Program linking failed: {}", message.get());
 	}
+
+	if (info.debugName && feRenderUtil::GetSupportedVersion() >= 43) glObjectLabel(GL_PROGRAM, m_Handle, -1, info.debugName);
 
 	feLog::Trace("Created Program");
 
