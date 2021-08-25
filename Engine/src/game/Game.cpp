@@ -1,5 +1,7 @@
 #include <glad/gl.h>
 
+#include <unordered_set>
+
 #include <lua.hpp>
 
 #include "../engine/Application.h"
@@ -12,6 +14,7 @@
 #include "../engine/renderer/Util.h"
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
+#include "../engine/Event.h"
 
 static void MakeWindow(feWindow& window, int width, int height, unsigned char version, bool useNewStuff, bool visible)
 {
@@ -77,6 +80,94 @@ public:
 
 	int width = 0;
 	int height = 0;
+};
+
+class Input final
+{
+public:
+	static void OnKey(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		Input* input = static_cast<Input*>(glfwGetWindowUserPointer(window));
+
+		switch (action)
+		{
+			case GLFW_PRESS:
+				input->m_Keys.insert(key);
+				break;
+			case GLFW_RELEASE:
+				input->m_Keys.erase(key);
+				break;
+		}
+	}
+public:
+	Input() = default;
+
+	void Set(const feWindow& window)
+	{
+		window.SetUserPointer(this);
+		glfwSetKeyCallback(window.GetHandle(), OnKey);
+	}
+
+	void Update()
+	{
+		feWindow::PollEvents();
+	}
+
+	bool IsKeyDown(int key) const
+	{
+		return m_Keys.find(key) != m_Keys.end();
+	}
+private:
+	std::unordered_set<int> m_Keys;
+};
+
+class Camera final
+{
+public:
+	void Move(const Input& input, float deltaTime)
+	{
+		
+			/*ImVec2 mouseDelta = ImGui::GetIO().MouseDelta;
+
+			{
+				glm::mat4 transform = editorCamera.ToMatrix();
+
+				glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
+				transform = glm::rotate(transform, glm::radians(mouseDelta.x * -mouseSensitivity), glm::vec3(axis));
+				transform = glm::rotate(transform, glm::radians(mouseDelta.y * -mouseSensitivity), glm::vec3(1, 0, 0));
+
+				editorCamera.FromMatrix(transform);
+			}*/
+
+			glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
+			float speed = 10.0f;
+
+			if (input.IsKeyDown(GLFW_KEY_W)) --movementVector.z;
+			if (input.IsKeyDown(GLFW_KEY_S)) ++movementVector.z;
+			if (input.IsKeyDown(GLFW_KEY_A)) --movementVector.x;
+			if (input.IsKeyDown(GLFW_KEY_D)) ++movementVector.x;
+			if (input.IsKeyDown(GLFW_KEY_Q)) --movementVector.y;
+			if (input.IsKeyDown(GLFW_KEY_E)) ++movementVector.y;
+			if (input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) --movementVector.w;
+			if (input.IsKeyDown(GLFW_KEY_SPACE)) ++movementVector.w;
+			if (input.IsKeyDown(GLFW_KEY_LEFT_CONTROL)) speed = 30.0f;
+
+			if (glm::length2(movementVector) > 0)
+			{
+				movementVector = glm::normalize(movementVector);
+				movementVector *= speed * deltaTime;
+
+				glm::mat4 transform = m_Transform.GetMatrix();
+				transform = glm::translate(transform, glm::vec3(movementVector));
+				glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
+				transform = glm::translate(transform, glm::vec3(axis) * movementVector.w);
+
+				m_Transform.SetMatrix(transform);
+			}
+		
+	}
+public:
+	feTransform m_Transform;
 };
 
 class Game : public feApplication
@@ -186,11 +277,32 @@ public:
 		m_Program = programInfo;
 
 		m_Script.Run("res/scripts/game.lua");
+
+		m_Input.Set(m_Window);
+
+		struct TestEvent
+		{
+			int value = 0;
+		};
+
+		struct Listener
+		{
+			void OnEvent(const TestEvent& event)
+			{
+				feLog::Info("{}", event.value);
+			}
+		} listener;
+
+		feEventDispatcher el;
+		el.Subscribe(&listener, &Listener::OnEvent);
+		el.Dispatch<TestEvent>(80);
+		el.Unubscribe(&listener);
+		el.Dispatch<TestEvent>(80);
 	}
 	
 	virtual void Update() override
 	{
-		feWindow::PollEvents();
+		m_Input.Update();
 
 		if (m_Window.ShouldClose()) Stop();
 
@@ -198,6 +310,8 @@ public:
 
 		// Don't render if the window is iconified
 		if (w == 0 || h == 0) return;
+
+		m_Camera.Move(m_Input, (float) GetDeltaTime());
 
 		feRenderUtil::Viewport(0, 0, w, h);
 		feRenderUtil::Clear();
@@ -210,6 +324,7 @@ public:
 		m_Program.Bind();
 		m_Program.Uniform3f("u_Color", { 1.0f, 0.5f, 0.0f });
 		m_Program.UniformMat4f("u_Model", m_Transform.GetMatrix());
+		m_Program.UniformMat4f("u_View", glm::inverse(m_Camera.m_Transform.GetMatrix()));
 		m_Program.UniformMat4f("u_Proj", proj);
 		m_Vao.Bind();
 		m_Vao.Draw();
@@ -232,6 +347,9 @@ private:
 	ScriptState m_Script;
 
 	feTransform m_Transform;
+
+	Input m_Input;
+	Camera m_Camera;
 };
 
 feApplication* feApplication::CreateInstance()
