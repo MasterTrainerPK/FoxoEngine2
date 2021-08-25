@@ -32,7 +32,7 @@ public:
 	}
 
 	template<typename t_ListenerType>
-	void Unubscribe(t_ListenerType* listener)
+	void Unsubscribe(t_ListenerType* listener)
 	{
 		for (auto funcIt = m_Funcs.begin(); funcIt != m_Funcs.end();)
 		{

@@ -15,6 +15,7 @@
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
+#include "../engine/WindowEvents.h"
 
 static void MakeWindow(feWindow& window, int width, int height, unsigned char version, bool useNewStuff, bool visible)
 {
@@ -85,27 +86,26 @@ public:
 class Input final
 {
 public:
-	static void OnKey(GLFWwindow* window, int key, int scancode, int action, int mods)
+	void OnKey(const feWindowKeyEvent& event)
 	{
-		Input* input = static_cast<Input*>(glfwGetWindowUserPointer(window));
-
-		switch (action)
-		{
-			case GLFW_PRESS:
-				input->m_Keys.insert(key);
-				break;
-			case GLFW_RELEASE:
-				input->m_Keys.erase(key);
-				break;
-		}
+		if(event.pressed) m_Keys.insert(event.key);
+		else m_Keys.erase(event.key);
 	}
-public:
+
 	Input() = default;
 
-	void Set(const feWindow& window)
+	Input(const Input&) = delete;
+	Input& operator=(const Input&) = delete;
+
+public:
+	void Set(feEventDispatcher& dispatcher)
 	{
-		window.SetUserPointer(this);
-		glfwSetKeyCallback(window.GetHandle(), OnKey);
+		dispatcher.Subscribe(this, &Input::OnKey);
+	}
+
+	void Unset(feEventDispatcher& dispatcher)
+	{
+		dispatcher.Unsubscribe(this);
 	}
 
 	void Update()
@@ -189,6 +189,25 @@ public:
 		}
 
 		MakeWindow(m_Window, config.width, config.height, version, true, true);
+
+		m_Window.SetUserPointer(this);
+		glfwSetWindowCloseCallback(m_Window.GetHandle(), [](GLFWwindow* window)
+		{
+			Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
+			game->m_EventDispatcher.Dispatch<feWindowCloseEvent>(&game->m_Window);
+		});
+
+		glfwSetKeyCallback(m_Window.GetHandle(), [](GLFWwindow* window, int key, int scancode, int action, int mods)
+		{
+			Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
+
+			// Ignore repeat codes
+			if (action == GLFW_REPEAT) return;
+
+			bool pressed = action == GLFW_PRESS;
+
+			game->m_EventDispatcher.Dispatch<feWindowKeyEvent>(&game->m_Window, key, pressed);
+		});
 
 		feRenderUtil::LogOpenGLInfo();
 		feRenderUtil::InitDefaults(0.7f, 0.8f, 0.9f, 1.0f);
@@ -278,33 +297,24 @@ public:
 
 		m_Script.Run("res/scripts/game.lua");
 
-		m_Input.Set(m_Window);
+		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
+		m_Input.Set(m_EventDispatcher);
+	}
 
-		struct TestEvent
-		{
-			int value = 0;
-		};
+	virtual void Destroy() override
+	{
+		m_EventDispatcher.Unsubscribe(this);
+		m_Input.Unset(m_EventDispatcher);
+	}
 
-		struct Listener
-		{
-			void OnEvent(const TestEvent& event)
-			{
-				feLog::Info("{}", event.value);
-			}
-		} listener;
-
-		feEventDispatcher el;
-		el.Subscribe(&listener, &Listener::OnEvent);
-		el.Dispatch<TestEvent>(80);
-		el.Unubscribe(&listener);
-		el.Dispatch<TestEvent>(80);
+	void OnWindowClose(const feWindowCloseEvent& event)
+	{
+		Stop();
 	}
 	
 	virtual void Update() override
 	{
 		m_Input.Update();
-
-		if (m_Window.ShouldClose()) Stop();
 
 		auto [w, h] = m_Window.GetViewportSize();
 
@@ -336,8 +346,10 @@ public:
 	{
 		return feWindow::GetTime();
 	}
-private:
+
+	feEventDispatcher m_EventDispatcher;
 	feWindow m_Window;
+private:
 
 	feVertexArray m_Vao;
 	feBufferObject m_Vbo;
