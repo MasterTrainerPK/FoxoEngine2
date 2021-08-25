@@ -15,7 +15,7 @@
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
-#include "../engine/WindowEvents.h"
+#include "WindowEvents.h"
 
 static void MakeWindow(feWindow& window, int width, int height, unsigned char version, bool useNewStuff, bool visible)
 {
@@ -83,13 +83,24 @@ public:
 	int height = 0;
 };
 
+struct WindowEventInputMode
+{
+	int mode;
+};
+
 class Input final
 {
 public:
-	void OnKey(const feWindowKeyEvent& event)
+	void OnKey(const feEventWindowKey& event)
 	{
 		if(event.pressed) m_Keys.insert(event.key);
 		else m_Keys.erase(event.key);
+	}
+
+	void OnMouseMove(const feEventWindowMouseMove& event)
+	{
+		m_Mouse.x = event.x;
+		m_Mouse.y = event.y;
 	}
 
 	Input() = default;
@@ -100,16 +111,21 @@ public:
 public:
 	void Set(feEventDispatcher& dispatcher)
 	{
+		m_Dispatcher = &dispatcher;
 		dispatcher.Subscribe(this, &Input::OnKey);
+		dispatcher.Subscribe(this, &Input::OnMouseMove);
 	}
 
-	void Unset(feEventDispatcher& dispatcher)
+	void Unset()
 	{
-		dispatcher.Unsubscribe(this);
+		m_Dispatcher->Unsubscribe(this);
+		m_Dispatcher = nullptr;
 	}
 
 	void Update()
 	{
+		m_KeysLast = m_Keys;
+		m_MouseLast = m_Mouse;
 		feWindow::PollEvents();
 	}
 
@@ -117,8 +133,28 @@ public:
 	{
 		return m_Keys.find(key) != m_Keys.end();
 	}
+
+	bool IsKeyPressed(int key) const
+	{
+		return IsKeyDown(key) && m_KeysLast.find(key) == m_KeysLast.end();
+	}
+
+	glm::vec2 GetMouseDelta() const
+	{
+		return m_Mouse - m_MouseLast;
+	}
+
+	const feEventDispatcher& GetEventDispatcher() const
+	{
+		return *m_Dispatcher;
+	}
 private:
 	std::unordered_set<int> m_Keys;
+	std::unordered_set<int> m_KeysLast;
+	glm::vec2 m_Mouse = glm::vec2(0.0f, 0.0f);
+	glm::vec2 m_MouseLast = glm::vec2(0.0f, 0.0f);
+
+	feEventDispatcher* m_Dispatcher = nullptr;
 };
 
 class Camera final
@@ -126,48 +162,57 @@ class Camera final
 public:
 	void Move(const Input& input, float deltaTime)
 	{
+		if (input.IsKeyPressed(GLFW_KEY_ESCAPE))
+		{
+			m_Locked = !m_Locked;
+
+			if (m_Locked) input.GetEventDispatcher().Dispatch<WindowEventInputMode>(GLFW_CURSOR_NORMAL);
+			else input.GetEventDispatcher().Dispatch<WindowEventInputMode>(GLFW_CURSOR_DISABLED);
+		}
+
+		if (m_Locked) return;
+
+		constexpr float mouseSensitivity = 0.3f;
+
+		glm::vec2 mouseDelta = input.GetMouseDelta();
 		
-			/*ImVec2 mouseDelta = ImGui::GetIO().MouseDelta;
+		if (glm::length2(mouseDelta) > 0)
+		{
+			glm::vec4 axis = glm::inverse(m_Transform.GetMatrix()) * glm::vec4(0, 1, 0, 0);
 
-			{
-				glm::mat4 transform = editorCamera.ToMatrix();
+			m_Transform.Rotate(glm::radians(mouseDelta.x * -mouseSensitivity), glm::vec3(axis));
+			m_Transform.Rotate(glm::radians(mouseDelta.y * -mouseSensitivity), glm::vec3(1, 0, 0));
+		}
 
-				glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
-				transform = glm::rotate(transform, glm::radians(mouseDelta.x * -mouseSensitivity), glm::vec3(axis));
-				transform = glm::rotate(transform, glm::radians(mouseDelta.y * -mouseSensitivity), glm::vec3(1, 0, 0));
+		glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
+		float speed = 10.0f;
 
-				editorCamera.FromMatrix(transform);
-			}*/
+		if (input.IsKeyDown(GLFW_KEY_W)) --movementVector.z;
+		if (input.IsKeyDown(GLFW_KEY_S)) ++movementVector.z;
+		if (input.IsKeyDown(GLFW_KEY_A)) --movementVector.x;
+		if (input.IsKeyDown(GLFW_KEY_D)) ++movementVector.x;
+		if (input.IsKeyDown(GLFW_KEY_Q)) --movementVector.y;
+		if (input.IsKeyDown(GLFW_KEY_E)) ++movementVector.y;
+		if (input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) --movementVector.w;
+		if (input.IsKeyDown(GLFW_KEY_SPACE)) ++movementVector.w;
+		if (input.IsKeyDown(GLFW_KEY_LEFT_CONTROL)) speed = 30.0f;
 
-			glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
-			float speed = 10.0f;
+		if (glm::length2(movementVector) > 0)
+		{
+			movementVector = glm::normalize(movementVector);
+			movementVector *= speed * deltaTime;
 
-			if (input.IsKeyDown(GLFW_KEY_W)) --movementVector.z;
-			if (input.IsKeyDown(GLFW_KEY_S)) ++movementVector.z;
-			if (input.IsKeyDown(GLFW_KEY_A)) --movementVector.x;
-			if (input.IsKeyDown(GLFW_KEY_D)) ++movementVector.x;
-			if (input.IsKeyDown(GLFW_KEY_Q)) --movementVector.y;
-			if (input.IsKeyDown(GLFW_KEY_E)) ++movementVector.y;
-			if (input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) --movementVector.w;
-			if (input.IsKeyDown(GLFW_KEY_SPACE)) ++movementVector.w;
-			if (input.IsKeyDown(GLFW_KEY_LEFT_CONTROL)) speed = 30.0f;
+			glm::mat4 transform = m_Transform.GetMatrix();
+			transform = glm::translate(transform, glm::vec3(movementVector));
+			glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
+			transform = glm::translate(transform, glm::vec3(axis) * movementVector.w);
 
-			if (glm::length2(movementVector) > 0)
-			{
-				movementVector = glm::normalize(movementVector);
-				movementVector *= speed * deltaTime;
-
-				glm::mat4 transform = m_Transform.GetMatrix();
-				transform = glm::translate(transform, glm::vec3(movementVector));
-				glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
-				transform = glm::translate(transform, glm::vec3(axis) * movementVector.w);
-
-				m_Transform.SetMatrix(transform);
-			}
-		
+			m_Transform.SetMatrix(transform);
+		}
 	}
 public:
 	feTransform m_Transform;
+	bool m_Locked = true;
 };
 
 class Game : public feApplication
@@ -194,7 +239,7 @@ public:
 		glfwSetWindowCloseCallback(m_Window.GetHandle(), [](GLFWwindow* window)
 		{
 			Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
-			game->m_EventDispatcher.Dispatch<feWindowCloseEvent>(&game->m_Window);
+			game->m_EventDispatcher.Dispatch<feEventWindowClose>(&game->m_Window);
 		});
 
 		glfwSetKeyCallback(m_Window.GetHandle(), [](GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -204,9 +249,15 @@ public:
 			// Ignore repeat codes
 			if (action == GLFW_REPEAT) return;
 
-			bool pressed = action == GLFW_PRESS;
+			game->m_EventDispatcher.Dispatch<feEventWindowKey>(&game->m_Window, key, action == GLFW_PRESS);
+		});
 
-			game->m_EventDispatcher.Dispatch<feWindowKeyEvent>(&game->m_Window, key, pressed);
+
+		glfwSetCursorPosCallback(m_Window.GetHandle(), [](GLFWwindow* window, double x, double y)
+		{
+			Game* game = static_cast<Game*>(glfwGetWindowUserPointer(window));
+
+			game->m_EventDispatcher.Dispatch<feEventWindowMouseMove>(&game->m_Window, float(x), float(y));
 		});
 
 		feRenderUtil::LogOpenGLInfo();
@@ -298,18 +349,24 @@ public:
 		m_Script.Run("res/scripts/game.lua");
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
+		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
 		m_Input.Set(m_EventDispatcher);
 	}
 
 	virtual void Destroy() override
 	{
 		m_EventDispatcher.Unsubscribe(this);
-		m_Input.Unset(m_EventDispatcher);
+		m_Input.Unset();
 	}
 
-	void OnWindowClose(const feWindowCloseEvent& event)
+	void OnWindowClose(const feEventWindowClose& event)
 	{
 		Stop();
+	}
+
+	void OnWindowCursorModeChange(const WindowEventInputMode& event)
+	{
+		glfwSetInputMode(m_Window.GetHandle(), GLFW_CURSOR, event.mode);
 	}
 	
 	virtual void Update() override
