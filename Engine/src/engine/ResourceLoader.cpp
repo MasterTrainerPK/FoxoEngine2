@@ -8,7 +8,7 @@ namespace feResourceLoader
 	{
 		std::FILE* fp;
 
-#if defined(_MSC_VER)
+#if defined(FE_PLAT_WINDOWS)
 		errno_t error = fopen_s(&fp, filename.data(), "rb");
 		if (error != 0) return {};
 #else
