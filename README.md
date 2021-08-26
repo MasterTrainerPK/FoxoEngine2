@@ -7,3 +7,6 @@ Building Dependencies
 - SPDLOG 1.9.2
 - GLAD2 4.6 Core w/ EXT_texture_filter_anisotropic
 - LUA 5.4.3
+
+Cloning
+git clone --recurse-submodules -j8 --branch master git@github.com:anthofoxo/FoxoEngine2.git
