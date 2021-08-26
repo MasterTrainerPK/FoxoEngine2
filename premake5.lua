@@ -33,7 +33,8 @@ project "Engine"
 		"%{wks.location}/vendor/glad2/include",
 		"%{wks.location}/vendor/glm",
 		"%{wks.location}/vendor/spdlog/include",
-		"%{wks.location}/vendor/lua-5.4.3/src"
+		"%{wks.location}/vendor/lua-5.4.3/src",
+		"%{wks.location}/vendor/entt/src",
 	}
 
 	defines
@@ -101,6 +102,17 @@ project "glm"
 	files
 	{
 		"%{prj.location}/glm/**.hpp"
+	}
+
+project "entt"
+	location "vendor/entt"
+	kind "None"
+	language "C++"
+	cppdialect "C++17"
+
+	files
+	{
+		"%{prj.location}/src/**.hpp"
 	}
 
 project "spdlog"

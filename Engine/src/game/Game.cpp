@@ -17,6 +17,8 @@
 #include "../engine/Event.h"
 #include "WindowEvents.h"
 
+#include <entt/entity/registry.hpp>
+
 static void MakeWindow(feWindow& window, int width, int height, unsigned char version, bool useNewStuff, bool visible)
 {
 	feWindowCreateInfo info;
