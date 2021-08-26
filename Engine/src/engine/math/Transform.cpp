@@ -12,6 +12,11 @@ glm::mat4 feTransform::GetMatrix() const
 	return mat;
 }
 
+glm::mat4 feTransform::GetInverseMatrix() const
+{
+	return glm::inverse(GetMatrix());
+}
+
 void feTransform::SetMatrix(const glm::mat4& mat)
 {
 	glm::vec3 skew;

@@ -8,6 +8,7 @@ class feTransform final
 {
 public:
 	glm::mat4 GetMatrix() const;
+	glm::mat4 GetInverseMatrix() const;
 	void SetMatrix(const glm::mat4& mat);
 	void Rotate(float angle, const glm::vec3& axis);
 

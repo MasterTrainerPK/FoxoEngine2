@@ -346,6 +346,8 @@ public:
 	bool m_CursorFree = true;
 };
 
+#include <tinyfiledialogs.h>
+
 class Game : public feApplication
 {
 public:
@@ -382,7 +384,6 @@ public:
 
 			game->m_EventDispatcher.Dispatch<feEventWindowKey>(&game->m_Window, key, action == GLFW_PRESS);
 		});
-
 
 		glfwSetCursorPosCallback(m_Window.GetHandle(), [](GLFWwindow* window, double x, double y)
 		{
@@ -522,7 +523,7 @@ public:
 		m_Program.Bind();
 		m_Program.Uniform3f("u_Color", { 1.0f, 0.5f, 0.0f });
 		m_Program.UniformMat4f("u_Model", m_Transform.GetMatrix());
-		m_Program.UniformMat4f("u_View", glm::inverse(m_Camera.m_Transform.GetMatrix()));
+		m_Program.UniformMat4f("u_View", m_Camera.m_Transform.GetInverseMatrix());
 		m_Program.UniformMat4f("u_Proj", proj);
 		m_Vao.Bind();
 		m_Vao.Draw();

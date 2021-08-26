@@ -1,6 +1,65 @@
 #include "ResourceLoader.h"
 
 #include <fstream>
+#include <utility>
+
+#include "../vendor/stb_image.h"
+#include "../engine/Log.h"
+
+feImage::feImage(std::string_view filename, int desiredChannels)
+{
+	m_Pixels = stbi_load(filename.data(), &m_Width, &m_Height, &m_Channels, desiredChannels);
+	if (!m_Pixels) feLog::Error("Failed to load image `{}`", filename);
+}
+
+feImage::feImage(const unsigned char* buffer, size_t size, int desiredChannels)
+{
+	m_Pixels = stbi_load_from_memory(buffer, size, &m_Width, &m_Height, &m_Channels, desiredChannels);
+	if (!m_Pixels) feLog::Error("Failed to load image from ptr {}", (const void*) buffer);
+}
+
+feImage::~feImage() noexcept
+{
+	if (m_Pixels) stbi_image_free(m_Pixels);
+}
+
+feImage::feImage(feImage&& other) noexcept
+{
+	std::swap(m_Width, other.m_Width);
+	std::swap(m_Height, other.m_Height);
+	std::swap(m_Channels, other.m_Channels);
+	std::swap(m_Pixels, other.m_Pixels);
+}
+
+feImage& feImage::operator=(feImage&& other) noexcept
+{
+	std::swap(m_Width, other.m_Width);
+	std::swap(m_Height, other.m_Height);
+	std::swap(m_Channels, other.m_Channels);
+	std::swap(m_Pixels, other.m_Pixels);
+
+	return *this;
+}
+
+int feImage::GetWidth() const
+{
+	return m_Width;
+}
+
+int feImage::GetHeight() const
+{
+	return m_Height;
+}
+
+int feImage::GetChannels() const
+{
+	return m_Channels;
+}
+
+const unsigned char* feImage::GetPixels() const
+{
+	return m_Pixels;
+}
 
 namespace feResourceLoader
 {
