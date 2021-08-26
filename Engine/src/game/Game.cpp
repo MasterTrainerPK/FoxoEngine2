@@ -361,6 +361,9 @@ public:
 
 		m_Program = programInfo;
 
+		// Loads the feApi
+		m_Script.RunFile("res/scripts/api.lua");
+
 		m_Script.RunFile("res/scripts/game.lua");
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
@@ -371,12 +374,10 @@ public:
 		{
 			constexpr float range = 20;
 
-			float s = feMath::RNG(1, 5);
-
 			feEntity entity = m_Scene.CreateEntity();
 			auto& transform = entity.CreateComponent<TransformComponent>();
 			transform.transform.pos = { feMath::RNG(-range, range), feMath::RNG(-range, range), feMath::RNG(-range, range)};
-			transform.transform.sca = { s, s, s };
+			transform.transform.sca = glm::vec3(feMath::RNG(1, 5));
 		}
 
 	
