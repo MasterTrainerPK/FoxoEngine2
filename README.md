@@ -9,4 +9,4 @@ Building Dependencies
 - LUA 5.4.3
 
 Cloning
-git clone --recurse-submodules -j8 --branch master git@github.com:anthofoxo/FoxoEngine2.git
+git clone --recurse-submodules -j8 --branch master git@github.com:MasterTrainerPK/FoxoEngine2.git
