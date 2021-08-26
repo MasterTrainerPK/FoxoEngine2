@@ -14,9 +14,11 @@
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
 #include "../engine/Script.h"
+#include "../engine/hierarchy/Scene.h"
+#include "../engine/math/Math.h"
 #include "WindowEvents.h"
 
-#include <entt/entity/registry.hpp>
+
 
 static void MakeWindow(feWindow& window, int width, int height, unsigned char version, bool useNewStuff, bool visible)
 {
@@ -41,39 +43,6 @@ static void MakeWindow(feWindow& window, int width, int height, unsigned char ve
 	feContext::Load(window);
 	feRenderUtil::ClearLoadedFlag();
 }
-
-
-#if 0
-// https://stackoverflow.com/a/6142700/15771797
-static void iterate_and_print(lua_State* L, int index)
-{
-	// Push another reference to the table on top of the stack (so we know
-	// where it is, and this function can work for negative, positive and
-	// pseudo indices
-	lua_pushvalue(L, index);
-	// stack now contains: -1 => table
-	lua_pushnil(L);
-	// stack now contains: -1 => nil; -2 => table
-	while (lua_next(L, -2))
-	{
-		// stack now contains: -1 => value; -2 => key; -3 => table
-		// copy the key so that lua_tostring does not modify the original
-		lua_pushvalue(L, -2);
-		// stack now contains: -1 => key; -2 => value; -3 => key; -4 => table
-		const char* key = lua_tostring(L, -1);
-		const char* value = lua_tostring(L, -2);
-		printf("%s => %s\n", key, value);
-		// pop value + copy of key, leaving original key
-		lua_pop(L, 2);
-		// stack now contains: -1 => key; -2 => table
-	}
-	// stack now contains: -1 => table (when lua_next returns 0 it pops the key
-	// but does not push anything.)
-	// Pop table
-	lua_pop(L, 1);
-	// Stack is now the same as it was on entry to this function
-}
-#endif
 
 static void LoadKeyMapping(lua_State* L, int index, std::unordered_map<std::string, int>& map)
 {
@@ -257,6 +226,11 @@ public:
 	bool m_CursorFree = true;
 };
 
+struct TransformComponent final
+{
+	feTransform transform;
+};
+
 class Game : public feApplication
 {
 public:
@@ -392,6 +366,20 @@ public:
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
 		m_Input.Set(m_EventDispatcher);
+
+		for (size_t i = 0; i < 20; ++i)
+		{
+			constexpr float range = 20;
+
+			float s = feMath::RNG(1, 5);
+
+			feEntity entity = m_Scene.CreateEntity();
+			auto& transform = entity.CreateComponent<TransformComponent>();
+			transform.transform.pos = { feMath::RNG(-range, range), feMath::RNG(-range, range), feMath::RNG(-range, range)};
+			transform.transform.sca = { s, s, s };
+		}
+
+	
 	}
 
 	virtual void Destroy() override
@@ -424,18 +412,28 @@ public:
 		feRenderUtil::Viewport(0, 0, w, h);
 		feRenderUtil::Clear();
 
-		glm::mat4 proj = glm::perspective(glm::radians(80.f), m_Window.GetAspect(), 0.1f, 100.0f);
-
-		m_Transform.pos = { 0, 0, -3 };
-		m_Transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
+		glm::mat4 proj = glm::perspective(glm::radians(80.f), m_Window.GetAspect(), 0.1f, 100.0f);	
 
 		m_Program.Bind();
 		m_Program.Uniform3f("u_Color", { 1.0f, 0.5f, 0.0f });
-		m_Program.UniformMat4f("u_Model", m_Transform.GetMatrix());
 		m_Program.UniformMat4f("u_View", m_Camera.m_Transform.GetInverseMatrix());
 		m_Program.UniformMat4f("u_Proj", proj);
 		m_Vao.Bind();
-		m_Vao.Draw();
+
+		{
+			auto view = m_Scene.m_Registry.view<TransformComponent>();
+
+			for (auto id : view)
+			{
+				auto& [transform] = view.get(id);
+				
+				// Perform roation, temp
+				transform.transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
+
+				m_Program.UniformMat4f("u_Model", transform.transform.GetMatrix());
+				m_Vao.Draw();
+			}
+		}
 
 		m_Window.SwapBuffers();
 	}
@@ -455,8 +453,7 @@ private:
 	feProgram m_Program;
 
 	feScript m_Script;
-
-	feTransform m_Transform;
+	feScene m_Scene;
 
 	Input m_Input;
 	Camera m_Camera;
