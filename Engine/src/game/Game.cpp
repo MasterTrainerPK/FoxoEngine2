@@ -27,7 +27,12 @@ static void MakeWindow(feWindow& window, int width, int height, unsigned char ve
 	info.contextMinor = version % 10;
 	info.contextForwardCompat = useNewStuff;
 	info.contextProfileCore = useNewStuff;
-	info.contextDebug = useNewStuff;
+#if defined(FE_CONF_DIST)
+	info.contextDebug = true;
+#else
+	info.contextDebug = false;
+#endif
+
 	info.visible = visible;
 
 	window = feWindow(info);
