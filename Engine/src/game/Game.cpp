@@ -2,8 +2,6 @@
 
 #include <unordered_set>
 
-#include <lua.hpp>
-
 #include "../engine/Application.h"
 #include "../engine/Window.h"
 #include "../engine/Log.h"
@@ -15,6 +13,7 @@
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
+#include "../engine/Script.h"
 #include "WindowEvents.h"
 
 #include <entt/entity/registry.hpp>
@@ -42,30 +41,7 @@ static void MakeWindow(feWindow& window, int width, int height, unsigned char ve
 	feContext::Load(window);
 	feRenderUtil::ClearLoadedFlag();
 }
-class ScriptState final
-{
-public:
-	ScriptState()
-	{
-		L = luaL_newstate();
-		luaL_openlibs(L);
-	}
 
-	void Run(const char* file)
-	{
-		if (luaL_dofile(L, file))
-		{
-			feLog::Error(lua_tostring(L, -1));
-		}
-	}
-
-	~ScriptState()
-	{
-		lua_close(L);
-	}
-
-	lua_State* L;
-};
 
 #if 0
 // https://stackoverflow.com/a/6142700/15771797
@@ -131,85 +107,20 @@ static void LoadKeyMapping(lua_State* L, int index, std::unordered_map<std::stri
 	// Stack is now the same as it was on entry to this function
 }
 
-bool LuaUtilGetInteger(lua_State* L, const char* name, int& output)
-{
-	// Push the global, name on to the top of the stack
-	lua_getglobal(L, name);
-
-	// If the value isnt a number then pop this varaible off the stack and return
-	if (!lua_isnumber(L, -1))
-	{
-		lua_pop(L, 1);
-		return false;
-	}
-
-	// otherwise get the value and set the output
-	output = (int) lua_tointeger(L, -1);
-	lua_pop(L, 1);
-	return true;
-}
-
-bool LuaUtilGetNumber(lua_State* L, const char* name, float& output)
-{
-	// Push the global, name on to the top of the stack
-	lua_getglobal(L, name);
-
-	// If the value isnt a number then pop this varaible off the stack and return
-	if (!lua_isnumber(L, -1))
-	{
-		lua_pop(L, 1);
-		return false;
-	}
-
-	// otherwise get the value and set the output
-	output = (float) lua_tonumber(L, -1);
-	lua_pop(L, 1);
-	return true;
-}
-
-#if 0
-void LuaUtilPrintStack(lua_State* L)
-{
-	int top = lua_gettop(L);
-	for (int i = 1; i <= top; i++) {
-		printf("%d\t%s\t", i, luaL_typename(L, i));
-		switch (lua_type(L, i)) {
-			case LUA_TNUMBER:
-				printf("%g\n", lua_tonumber(L, i));
-				break;
-			case LUA_TSTRING:
-				printf("%s\n", lua_tostring(L, i));
-				break;
-			case LUA_TBOOLEAN:
-				printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
-				break;
-			case LUA_TNIL:
-				printf("%s\n", "nil");
-				break;
-			default:
-				printf("%p\n", lua_topointer(L, i));
-				break;
-		}
-	}
-
-	if (top == 0) printf("Empty stack\n");
-}
-#endif
-
 class Config final
 {
 public:
 	void LoadConfig()
 	{
-		ScriptState state;
-		state.Run("res/scripts/config.lua");
+		feScript script;
+		script.RunFile("res/scripts/config.lua");
 
-		if (!LuaUtilGetInteger(state.L, "windowWidth", width)) feLog::Error("`windowWidth` should be a number");
-		if (!LuaUtilGetInteger(state.L, "windowHeight", height)) feLog::Error("`windowHeight` should be a number");
-		if (!LuaUtilGetNumber(state.L, "mouseSensitivity", sensitivity)) feLog::Error("`mouseSensitivity` should be a number");
+		if (!script.GetGlobalInt("windowWidth", width)) feLog::Error("`windowWidth` should be a number");
+		if (!script.GetGlobalInt("windowHeight", height)) feLog::Error("`windowHeight` should be a number");
+		if (!script.GetGlobalFloat("mouseSensitivity", sensitivity)) feLog::Error("`mouseSensitivity` should be a number");
 
-		lua_getglobal(state.L, "keyMapping");
-		LoadKeyMapping(state.L, -1, m_KeyBindings);
+		lua_getglobal(script.GetState(), "keyMapping");
+		LoadKeyMapping(script.GetState(), -1, m_KeyBindings);
 	}
 
 	int width = 800;
@@ -346,8 +257,6 @@ public:
 	bool m_CursorFree = true;
 };
 
-#include <tinyfiledialogs.h>
-
 class Game : public feApplication
 {
 public:
@@ -478,7 +387,7 @@ public:
 
 		m_Program = programInfo;
 
-		m_Script.Run("res/scripts/game.lua");
+		m_Script.RunFile("res/scripts/game.lua");
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
@@ -545,7 +454,7 @@ private:
 	feBufferObject m_Ibo;
 	feProgram m_Program;
 
-	ScriptState m_Script;
+	feScript m_Script;
 
 	feTransform m_Transform;
 
