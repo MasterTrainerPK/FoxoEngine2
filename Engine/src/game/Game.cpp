@@ -40,7 +40,6 @@ static void MakeWindow(feWindow& window, int width, int height, unsigned char ve
 	feContext::Load(window);
 	feRenderUtil::ClearLoadedFlag();
 }
-
 class ScriptState final
 {
 public:
@@ -66,26 +65,126 @@ public:
 	lua_State* L;
 };
 
+#if 0
+// https://stackoverflow.com/a/6142700/15771797
+static void iterate_and_print(lua_State* L, int index)
+{
+	// Push another reference to the table on top of the stack (so we know
+	// where it is, and this function can work for negative, positive and
+	// pseudo indices
+	lua_pushvalue(L, index);
+	// stack now contains: -1 => table
+	lua_pushnil(L);
+	// stack now contains: -1 => nil; -2 => table
+	while (lua_next(L, -2))
+	{
+		// stack now contains: -1 => value; -2 => key; -3 => table
+		// copy the key so that lua_tostring does not modify the original
+		lua_pushvalue(L, -2);
+		// stack now contains: -1 => key; -2 => value; -3 => key; -4 => table
+		const char* key = lua_tostring(L, -1);
+		const char* value = lua_tostring(L, -2);
+		printf("%s => %s\n", key, value);
+		// pop value + copy of key, leaving original key
+		lua_pop(L, 2);
+		// stack now contains: -1 => key; -2 => table
+	}
+	// stack now contains: -1 => table (when lua_next returns 0 it pops the key
+	// but does not push anything.)
+	// Pop table
+	lua_pop(L, 1);
+	// Stack is now the same as it was on entry to this function
+}
+#endif
+
+static void LoadKeyMapping(lua_State* L, int index, std::unordered_map<std::string, int>& map)
+{
+	// Push another reference to the table on top of the stack (so we know
+	// where it is, and this function can work for negative, positive and
+	// pseudo indices
+	lua_pushvalue(L, index);
+	// stack now contains: -1 => table
+	lua_pushnil(L);
+	// stack now contains: -1 => nil; -2 => table
+	while (lua_next(L, -2))
+	{
+		// stack now contains: -1 => value; -2 => key; -3 => table
+		// copy the key so that lua_tostring does not modify the original
+		lua_pushvalue(L, -2);
+		// stack now contains: -1 => key; -2 => value; -3 => key; -4 => table
+		const char* key = lua_tostring(L, -1);
+		int value = lua_tointeger(L, -2);
+
+		map[key] = value;
+
+		//printf("%s => %s\n", key, value);
+		// pop value + copy of key, leaving original key
+		lua_pop(L, 2);
+		// stack now contains: -1 => key; -2 => table
+	}
+	// stack now contains: -1 => table (when lua_next returns 0 it pops the key
+	// but does not push anything.)
+	// Pop table
+	lua_pop(L, 1);
+	// Stack is now the same as it was on entry to this function
+}
+
 class Config final
 {
 public:
-	Config()
+	void LoadConfig()
 	{
 		ScriptState state;
 		state.Run("res/scripts/config.lua");
 
 		lua_getglobal(state.L, "windowWidth");
 		lua_getglobal(state.L, "windowHeight");
-		if (!lua_isnumber(state.L, -2)) feLog::Error("Width should be a number");
-		if (!lua_isnumber(state.L, -1)) feLog::Error("Height should be a number");
-		width = (int) lua_tointeger(state.L, -2);
-		height = (int) lua_tointeger(state.L, -1);
+		lua_getglobal(state.L, "mouseSensitivity");
+		if (!lua_isnumber(state.L, 1)) feLog::Error("Width should be a number");
+		if (!lua_isnumber(state.L, 2)) feLog::Error("Height should be a number");
+		if (!lua_isnumber(state.L, 3)) feLog::Error("Sensitvity should be a number");
+		width = (int) lua_tointeger(state.L, 1);
+		height = (int) lua_tointeger(state.L, 2);
+		sensitivity = (float) lua_tonumber(state.L, 3);
 
-		lua_pop(state.L, 1);
+		lua_pop(state.L, 3);
+
+#if 0
+		auto printStack = [](lua_State* L) {
+			int top = lua_gettop(L);
+			for (int i = 1; i <= top; i++) {
+				printf("%d\t%s\t", i, luaL_typename(L, i));
+				switch (lua_type(L, i)) {
+					case LUA_TNUMBER:
+						printf("%g\n", lua_tonumber(L, i));
+						break;
+					case LUA_TSTRING:
+						printf("%s\n", lua_tostring(L, i));
+						break;
+					case LUA_TBOOLEAN:
+						printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
+						break;
+					case LUA_TNIL:
+						printf("%s\n", "nil");
+						break;
+					default:
+						printf("%p\n", lua_topointer(L, i));
+						break;
+				}
+			}
+
+			if (top == 0) printf("Empty stack\n");
+		};
+#endif
+
+		lua_getglobal(state.L, "keyMapping");
+		LoadKeyMapping(state.L, -1, m_KeyBindings);
 	}
 
 	int width = 0;
 	int height = 0;
+	float sensitivity = 0;
+	std::unordered_map<std::string, int> m_KeyBindings;
 };
 
 struct WindowEventInputMode
@@ -165,7 +264,7 @@ private:
 class Camera final
 {
 public:
-	void Move(const Input& input, float deltaTime)
+	void Move(const Input& input, float deltaTime, const Config& config)
 	{
 		if (input.IsKeyPressed(GLFW_KEY_ESCAPE))
 		{
@@ -177,30 +276,28 @@ public:
 
 		if (m_Locked) return;
 
-		constexpr float mouseSensitivity = 0.3f;
-
 		glm::vec2 mouseDelta = input.GetMouseDelta();
 		
 		if (glm::length2(mouseDelta) > 0)
 		{
 			glm::vec4 axis = glm::inverse(m_Transform.GetMatrix()) * glm::vec4(0, 1, 0, 0);
 
-			m_Transform.Rotate(glm::radians(mouseDelta.x * -mouseSensitivity), glm::vec3(axis));
-			m_Transform.Rotate(glm::radians(mouseDelta.y * -mouseSensitivity), glm::vec3(1, 0, 0));
+			m_Transform.Rotate(glm::radians(mouseDelta.x * -config.sensitivity), glm::vec3(axis));
+			m_Transform.Rotate(glm::radians(mouseDelta.y * -config.sensitivity), glm::vec3(1, 0, 0));
 		}
 
 		glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
 		float speed = 10.0f;
 
-		if (input.IsKeyDown(GLFW_KEY_W)) --movementVector.z;
-		if (input.IsKeyDown(GLFW_KEY_S)) ++movementVector.z;
-		if (input.IsKeyDown(GLFW_KEY_A)) --movementVector.x;
-		if (input.IsKeyDown(GLFW_KEY_D)) ++movementVector.x;
-		if (input.IsKeyDown(GLFW_KEY_Q)) --movementVector.y;
-		if (input.IsKeyDown(GLFW_KEY_E)) ++movementVector.y;
-		if (input.IsKeyDown(GLFW_KEY_LEFT_SHIFT)) --movementVector.w;
-		if (input.IsKeyDown(GLFW_KEY_SPACE)) ++movementVector.w;
-		if (input.IsKeyDown(GLFW_KEY_LEFT_CONTROL)) speed = 30.0f;
+		if (input.IsKeyDown(config.m_KeyBindings.at("forward"))) --movementVector.z;
+		if (input.IsKeyDown(config.m_KeyBindings.at("back"))) ++movementVector.z;
+		if (input.IsKeyDown(config.m_KeyBindings.at("left"))) --movementVector.x;
+		if (input.IsKeyDown(config.m_KeyBindings.at("right"))) ++movementVector.x;
+		if (input.IsKeyDown(config.m_KeyBindings.at("down"))) --movementVector.y;
+		if (input.IsKeyDown(config.m_KeyBindings.at("up"))) ++movementVector.y;
+		if (input.IsKeyDown(config.m_KeyBindings.at("global_down"))) --movementVector.w;
+		if (input.IsKeyDown(config.m_KeyBindings.at("global_up"))) ++movementVector.w;
+		if (input.IsKeyDown(config.m_KeyBindings.at("sprint"))) speed = 30.0f;
 
 		if (glm::length2(movementVector) > 0)
 		{
@@ -227,18 +324,18 @@ public:
 
 	virtual void Init() override
 	{
-		Config config = Config();
+		m_Config.LoadConfig();
 
 		// Minimum version required is OpenGL 4.0
 		unsigned char version = 40;
 
 		{
 			feWindow window;
-			MakeWindow(window, config.width, config.height, version, false, false);
+			MakeWindow(window, m_Config.width, m_Config.height, version, false, false);
 			version = feRenderUtil::GetSupportedVersion();
 		}
 
-		MakeWindow(m_Window, config.width, config.height, version, true, true);
+		MakeWindow(m_Window, m_Config.width, m_Config.height, version, true, true);
 
 		m_Window.SetUserPointer(this);
 		glfwSetWindowCloseCallback(m_Window.GetHandle(), [](GLFWwindow* window)
@@ -383,7 +480,7 @@ public:
 		// Don't render if the window is iconified
 		if (w == 0 || h == 0) return;
 
-		m_Camera.Move(m_Input, (float) GetDeltaTime());
+		m_Camera.Move(m_Input, (float) GetDeltaTime(), m_Config);
 
 		feRenderUtil::Viewport(0, 0, w, h);
 		feRenderUtil::Clear();
@@ -424,6 +521,7 @@ private:
 
 	Input m_Input;
 	Camera m_Camera;
+	Config m_Config;
 };
 
 feApplication* feApplication::CreateInstance()
