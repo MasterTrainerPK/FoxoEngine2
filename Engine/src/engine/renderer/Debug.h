@@ -6,7 +6,7 @@ class feDebugGroup final
 {
 public:
 	feDebugGroup(std::string_view message, unsigned int id);
-	~feDebugGroup();
+	~feDebugGroup() noexcept;
 
 	feDebugGroup(const feDebugGroup&) = delete;
 	feDebugGroup& operator=(const feDebugGroup&) = delete;

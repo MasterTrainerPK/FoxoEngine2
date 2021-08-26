@@ -35,6 +35,7 @@ project "Engine"
 		"%{wks.location}/vendor/spdlog/include",
 		"%{wks.location}/vendor/lua-5.4.3/src",
 		"%{wks.location}/vendor/entt/src",
+		"%{wks.location}/vendor/tinyfd"
 	}
 
 	defines
@@ -46,7 +47,8 @@ project "Engine"
 	{
 		"glfw",
 		"glad2",
-		"lua"
+		"lua",
+		"tinyfd"
 	}
 
 	filter "system:windows"
@@ -275,6 +277,35 @@ project "lua"
 	removefiles
 	{
 		"%{prj.location}/src/lua.c"
+	}
+
+	filter "system:windows"
+		systemversion "latest"
+
+	filter "configurations:Debug"
+		runtime "Debug"
+		symbols "on"
+
+	filter "configurations:Release"
+		runtime "Release"
+		optimize "on"
+
+	filter "configurations:Dist"
+		runtime "Release"
+		optimize "on"
+
+project "tinyfd"
+	location "vendor/tinyfd"
+	kind "StaticLib"
+	language "C"
+
+	targetdir (outputbindir)
+	objdir (outputobjdir)
+
+	files
+	{
+		"%{prj.location}/tinyfiledialogs.c",
+		"%{prj.location}/tinyfiledialogs.h"
 	}
 
 	filter "system:windows"

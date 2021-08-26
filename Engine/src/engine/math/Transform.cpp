@@ -31,3 +31,8 @@ void feTransform::Rotate(float angle, const glm::vec3& axis)
 	// Convers the rotation to a matrix and uses that to apply the quaternion
 	quat = glm::normalize(glm::toQuat(glm::rotate(glm::toMat4(quat), angle, axis)));
 }
+
+void feTransform::Validate()
+{
+	SetMatrix(GetMatrix());
+}

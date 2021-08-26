@@ -9,7 +9,7 @@ feDebugGroup::feDebugGroup(std::string_view message, unsigned int id)
 	if (feRenderUtil::GetSupportedVersion() >= 43) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, id, -1, message.data());
 }
 
-feDebugGroup::~feDebugGroup()
+feDebugGroup::~feDebugGroup() noexcept
 {
 	if (feRenderUtil::GetSupportedVersion() >= 43) glPopDebugGroup();
 }

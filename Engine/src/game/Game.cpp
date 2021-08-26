@@ -115,7 +115,7 @@ static void LoadKeyMapping(lua_State* L, int index, std::unordered_map<std::stri
 		lua_pushvalue(L, -2);
 		// stack now contains: -1 => key; -2 => value; -3 => key; -4 => table
 		const char* key = lua_tostring(L, -1);
-		int value = lua_tointeger(L, -2);
+		int value = (int) lua_tointeger(L, -2);
 
 		map[key] = value;
 
@@ -131,6 +131,71 @@ static void LoadKeyMapping(lua_State* L, int index, std::unordered_map<std::stri
 	// Stack is now the same as it was on entry to this function
 }
 
+bool LuaUtilGetInteger(lua_State* L, const char* name, int& output)
+{
+	// Push the global, name on to the top of the stack
+	lua_getglobal(L, name);
+
+	// If the value isnt a number then pop this varaible off the stack and return
+	if (!lua_isnumber(L, -1))
+	{
+		lua_pop(L, 1);
+		return false;
+	}
+
+	// otherwise get the value and set the output
+	output = (int) lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	return true;
+}
+
+bool LuaUtilGetNumber(lua_State* L, const char* name, float& output)
+{
+	// Push the global, name on to the top of the stack
+	lua_getglobal(L, name);
+
+	// If the value isnt a number then pop this varaible off the stack and return
+	if (!lua_isnumber(L, -1))
+	{
+		lua_pop(L, 1);
+		return false;
+	}
+
+	// otherwise get the value and set the output
+	output = (float) lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	return true;
+}
+
+#if 0
+void LuaUtilPrintStack(lua_State* L)
+{
+	int top = lua_gettop(L);
+	for (int i = 1; i <= top; i++) {
+		printf("%d\t%s\t", i, luaL_typename(L, i));
+		switch (lua_type(L, i)) {
+			case LUA_TNUMBER:
+				printf("%g\n", lua_tonumber(L, i));
+				break;
+			case LUA_TSTRING:
+				printf("%s\n", lua_tostring(L, i));
+				break;
+			case LUA_TBOOLEAN:
+				printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
+				break;
+			case LUA_TNIL:
+				printf("%s\n", "nil");
+				break;
+			default:
+				printf("%p\n", lua_topointer(L, i));
+				break;
+		}
+	}
+
+	if (top == 0) printf("Empty stack\n");
+}
+#endif
+
 class Config final
 {
 public:
@@ -139,59 +204,23 @@ public:
 		ScriptState state;
 		state.Run("res/scripts/config.lua");
 
-		lua_getglobal(state.L, "windowWidth");
-		lua_getglobal(state.L, "windowHeight");
-		lua_getglobal(state.L, "mouseSensitivity");
-		if (!lua_isnumber(state.L, 1)) feLog::Error("Width should be a number");
-		if (!lua_isnumber(state.L, 2)) feLog::Error("Height should be a number");
-		if (!lua_isnumber(state.L, 3)) feLog::Error("Sensitvity should be a number");
-		width = (int) lua_tointeger(state.L, 1);
-		height = (int) lua_tointeger(state.L, 2);
-		sensitivity = (float) lua_tonumber(state.L, 3);
-
-		lua_pop(state.L, 3);
-
-#if 0
-		auto printStack = [](lua_State* L) {
-			int top = lua_gettop(L);
-			for (int i = 1; i <= top; i++) {
-				printf("%d\t%s\t", i, luaL_typename(L, i));
-				switch (lua_type(L, i)) {
-					case LUA_TNUMBER:
-						printf("%g\n", lua_tonumber(L, i));
-						break;
-					case LUA_TSTRING:
-						printf("%s\n", lua_tostring(L, i));
-						break;
-					case LUA_TBOOLEAN:
-						printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
-						break;
-					case LUA_TNIL:
-						printf("%s\n", "nil");
-						break;
-					default:
-						printf("%p\n", lua_topointer(L, i));
-						break;
-				}
-			}
-
-			if (top == 0) printf("Empty stack\n");
-		};
-#endif
+		if (!LuaUtilGetInteger(state.L, "windowWidth", width)) feLog::Error("`windowWidth` should be a number");
+		if (!LuaUtilGetInteger(state.L, "windowHeight", height)) feLog::Error("`windowHeight` should be a number");
+		if (!LuaUtilGetNumber(state.L, "mouseSensitivity", sensitivity)) feLog::Error("`mouseSensitivity` should be a number");
 
 		lua_getglobal(state.L, "keyMapping");
 		LoadKeyMapping(state.L, -1, m_KeyBindings);
 	}
 
-	int width = 0;
-	int height = 0;
-	float sensitivity = 0;
+	int width = 800;
+	int height = 600;
+	float sensitivity = 0.3f;
 	std::unordered_map<std::string, int> m_KeyBindings;
 };
 
-struct WindowEventInputMode
+struct EventWindowMouseLock
 {
-	int mode;
+	bool shouldLock;
 };
 
 class Input final
@@ -270,13 +299,11 @@ public:
 	{
 		if (input.IsKeyPressed(GLFW_KEY_ESCAPE))
 		{
-			m_Locked = !m_Locked;
-
-			if (m_Locked) input.GetEventDispatcher().Dispatch<WindowEventInputMode>(GLFW_CURSOR_NORMAL);
-			else input.GetEventDispatcher().Dispatch<WindowEventInputMode>(GLFW_CURSOR_DISABLED);
+			m_CursorFree = !m_CursorFree;
+			input.GetEventDispatcher().Dispatch<EventWindowMouseLock>(!m_CursorFree);
 		}
 
-		if (m_Locked) return;
+		if (m_CursorFree) return;
 
 		glm::vec2 mouseDelta = input.GetMouseDelta();
 		
@@ -316,7 +343,7 @@ public:
 	}
 public:
 	feTransform m_Transform;
-	bool m_Locked = true;
+	bool m_CursorFree = true;
 };
 
 class Game : public feApplication
@@ -468,9 +495,9 @@ public:
 		Stop();
 	}
 
-	void OnWindowCursorModeChange(const WindowEventInputMode& event)
+	void OnWindowCursorModeChange(const EventWindowMouseLock& event)
 	{
-		glfwSetInputMode(m_Window.GetHandle(), GLFW_CURSOR, event.mode);
+		glfwSetInputMode(m_Window.GetHandle(), GLFW_CURSOR, event.shouldLock ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 	}
 	
 	virtual void Update() override

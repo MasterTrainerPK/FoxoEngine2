@@ -10,3 +10,6 @@
 [submodule "vendor/entt"]
 	path = vendor/entt
 	url = https://github.com/skypjack/entt
+[submodule "vendor/tinyfd"]
+	path = vendor/tinyfd
+	url = https://github.com/native-toolkit/tinyfiledialogs
