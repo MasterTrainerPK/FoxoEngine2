@@ -26,4 +26,6 @@ public:
 private:
 	unsigned int m_Handle = 0;
 	unsigned int m_Target = 0;
+
+	friend class feVertexArray;
 };

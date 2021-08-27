@@ -14,33 +14,58 @@ feVertexArray::feVertexArray(unsigned int handle)
 
 feVertexArray::feVertexArray(const feVertexArrayCreateInfo& info)
 {
-	glGenVertexArrays(1, &m_Handle);
-	glBindVertexArray(m_Handle);
-
-	for (size_t i = 0; i < info.attributeInfoCount; ++i)
+	// Use DSA functions if supported
+	if (feRenderUtil::GetSupportedVersion() >= 45)
 	{
-		feVertexArrayCreateInfoAttributeInfo* attributeInfo = info.attributeInfos + i;
-		feVertexArrayCreateInfoBufferObjectInfo* bufferInfo = info.vertexBufferInfos + attributeInfo->buffer;
+		glCreateVertexArrays(1, &m_Handle);
 
-		if (attributeInfo->buffer >= info.vertexBufferInfoCount)
+		for (size_t i = 0; i < info.vertexBufferInfoCount; ++i)
 		{
-			feLog::Warn("Attempting to access out of bound buffer");
-			feLog::Break();
-
-			// Do not attempt to read from this location
-			continue;
+			feVertexArrayCreateInfoBufferObjectInfo* bufferInfo = info.vertexBufferInfos + i;
+			glVertexArrayVertexBuffer(m_Handle, i, bufferInfo->buffer->m_Handle, 0, bufferInfo->stride);
 		}
 
-		bufferInfo->buffer->Bind();
-		glEnableVertexAttribArray(static_cast<GLuint>(i));
-		glVertexAttribPointer(static_cast<GLuint>(i), attributeInfo->size, attributeInfo->type, GL_FALSE, bufferInfo->stride, (const void*) (intptr_t) attributeInfo->offset);
+		for (size_t i = 0; i < info.attributeInfoCount; ++i)
+		{
+			feVertexArrayCreateInfoAttributeInfo* attributeInfo = info.attributeInfos + i;
+
+			glEnableVertexArrayAttrib(m_Handle, i);
+			glVertexArrayAttribFormat(m_Handle, i, attributeInfo->size, attributeInfo->type, GL_FALSE, attributeInfo->offset);
+			glVertexArrayAttribBinding(m_Handle, i, attributeInfo->buffer);
+		}
+
+		if (info.indexBuffer) glVertexArrayElementBuffer(m_Handle, info.indexBuffer->m_Handle);
 	}
+	else
+	{
+		glGenVertexArrays(1, &m_Handle);
+		glBindVertexArray(m_Handle);
 
-	if (info.indexBuffer) info.indexBuffer->Bind();
+		for (size_t i = 0; i < info.attributeInfoCount; ++i)
+		{
+			feVertexArrayCreateInfoAttributeInfo* attributeInfo = info.attributeInfos + i;
+			feVertexArrayCreateInfoBufferObjectInfo* bufferInfo = info.vertexBufferInfos + attributeInfo->buffer;
 
-	glBindVertexArray(0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+			if (attributeInfo->buffer >= info.vertexBufferInfoCount)
+			{
+				feLog::Warn("Attempting to access out of bound buffer");
+				feLog::Break();
+
+				// Do not attempt to read from this location
+				continue;
+			}
+
+			bufferInfo->buffer->Bind();
+			glEnableVertexAttribArray(static_cast<GLuint>(i));
+			glVertexAttribPointer(static_cast<GLuint>(i), attributeInfo->size, attributeInfo->type, GL_FALSE, bufferInfo->stride, (const void*) (intptr_t) attributeInfo->offset);
+		}
+
+		if (info.indexBuffer) info.indexBuffer->Bind();
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
 
 	m_Count = info.count;
 	m_Mode = info.mode;
