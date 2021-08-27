@@ -71,34 +71,38 @@ lua_State* feScript::GetState() const
 	return L;
 }
 
-#if 0
-void LuaUtilPrintStack(lua_State* L)
+void feScript::PrintStack(lua_State* L)
 {
 	int top = lua_gettop(L);
-	for (int i = 1; i <= top; i++) {
-		printf("%d\t%s\t", i, luaL_typename(L, i));
-		switch (lua_type(L, i)) {
-			case LUA_TNUMBER:
-				printf("%g\n", lua_tonumber(L, i));
-				break;
-			case LUA_TSTRING:
-				printf("%s\n", lua_tostring(L, i));
-				break;
-			case LUA_TBOOLEAN:
-				printf("%s\n", (lua_toboolean(L, i) ? "true" : "false"));
-				break;
-			case LUA_TNIL:
-				printf("%s\n", "nil");
-				break;
-			default:
-				printf("%p\n", lua_topointer(L, i));
-				break;
+
+	if (top > 0)
+	{
+		for (int i = 1; i <= top; i++)
+		{
+			const char* typen = luaL_typename(L, i);
+
+			switch (lua_type(L, i)) {
+				case LUA_TNUMBER:
+					feLog::Info("{} {:>8} = {}", i, typen, lua_tonumber(L, i));
+					break;
+				case LUA_TSTRING:
+					feLog::Info("{} {:>8} = {}", i, typen, lua_tostring(L, i));
+					break;
+				case LUA_TBOOLEAN:
+					feLog::Info("{} {:>8} = {}", i, typen, (lua_toboolean(L, i) ? "true" : "false"));
+					break;
+				case LUA_TNIL:
+					feLog::Info("{} {:>8} = {}", i, typen, "nil");
+					break;
+				default:
+					feLog::Info("{} {:>8} = {}", i, typen, lua_topointer(L, i));
+					break;
+			}
 		}
 	}
-
-	if (top == 0) printf("Empty stack\n");
+	else feLog::Info("Empty stack");
+	feLog::Info("-----------------");
 }
-#endif
 
 #if 0
 // https://stackoverflow.com/a/6142700/15771797

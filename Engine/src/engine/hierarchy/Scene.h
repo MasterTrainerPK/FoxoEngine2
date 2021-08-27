@@ -15,7 +15,13 @@ struct feEntity final
 	template<typename t_Component>
 	t_Component& GetComponent()
 	{
-		return m_Scene.m_Registry.template get<t_Component>(m_Id);
+		return m_Scene->m_Registry.template get<t_Component>(m_Id);
+	}
+
+	template<typename t_Component>
+	t_Component* TryGetComponent()
+	{
+		return m_Scene->m_Registry.template try_get<t_Component>(m_Id);
 	}
 
 	operator bool() const;

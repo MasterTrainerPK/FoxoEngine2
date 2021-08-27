@@ -231,6 +231,10 @@ struct TransformComponent final
 	feTransform transform;
 };
 
+int feApiCreateEntity(lua_State* L);
+int feApiCreateComponent(lua_State* L);
+int feApiComponentTransformSet(lua_State* L);
+
 class Game : public feApplication
 {
 public:
@@ -361,16 +365,31 @@ public:
 
 		m_Program = programInfo;
 
-		// Loads the feApi
-		m_Script.RunFile("res/scripts/api.lua");
-
-		m_Script.RunFile("res/scripts/game.lua");
-
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
 		m_Input.Set(m_EventDispatcher);
 
-		for (size_t i = 0; i < 20; ++i)
+		// Loads the feApi
+		m_Script.RunFile("res/scripts/api.lua");
+
+		lua_register(m_Script.GetState(), "feApiCreateEntity", &feApiCreateEntity);
+		lua_register(m_Script.GetState(), "feApiCreateComponent", &feApiCreateComponent);
+		lua_register(m_Script.GetState(), "feApiComponentTransformSet", &feApiComponentTransformSet);
+
+		// Load the script
+		m_Script.RunFile("res/scripts/game.lua");
+
+		// Call global Init function from the script
+		lua_getglobal(m_Script.GetState(), "Init");
+		if (lua_isfunction(m_Script.GetState(), -1))
+		{
+			lua_pushlightuserdata(m_Script.GetState(), this);
+			if(lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
+		}
+
+		
+
+		/*for (size_t i = 0; i < 20; ++i)
 		{
 			constexpr float range = 20;
 
@@ -378,13 +397,19 @@ public:
 			auto& transform = entity.CreateComponent<TransformComponent>();
 			transform.transform.pos = { feMath::RNG(-range, range), feMath::RNG(-range, range), feMath::RNG(-range, range)};
 			transform.transform.sca = glm::vec3(feMath::RNG(1, 5));
-		}
-
-	
+		}*/
 	}
 
 	virtual void Destroy() override
 	{
+		// Call global Init function from the script
+		lua_getglobal(m_Script.GetState(), "Destroy");
+		if (lua_isfunction(m_Script.GetState(), -1))
+		{
+			lua_pushlightuserdata(m_Script.GetState(), this);
+			if (lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
+		}
+
 		m_EventDispatcher.Unsubscribe(this);
 		m_Input.Unset();
 	}
@@ -407,6 +432,14 @@ public:
 
 		// Don't render if the window is iconified
 		if (w == 0 || h == 0) return;
+
+		// Call update function from script
+		lua_getglobal(m_Script.GetState(), "Update");
+		if (lua_isfunction(m_Script.GetState(), -1))
+		{
+			lua_pushlightuserdata(m_Script.GetState(), this);
+			if (lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
+		}
 
 		m_Camera.Move(m_Input, (float) GetDeltaTime(), m_Config);
 
@@ -446,6 +479,7 @@ public:
 
 	feEventDispatcher m_EventDispatcher;
 	feWindow m_Window;
+	feScene m_Scene;
 private:
 
 	feVertexArray m_Vao;
@@ -454,12 +488,114 @@ private:
 	feProgram m_Program;
 
 	feScript m_Script;
-	feScene m_Scene;
+	
 
 	Input m_Input;
 	Camera m_Camera;
 	Config m_Config;
 };
+
+int feApiCreateEntity(lua_State* L)
+{
+	Game* game = static_cast<Game*>(lua_touserdata(L, 1));
+
+	feEntity entity = game->m_Scene.CreateEntity();
+	feEntity* luaEntity = static_cast<feEntity*>(lua_newuserdata(L, sizeof(feEntity)));
+	*luaEntity = entity;
+
+	return 1;
+}
+
+int feApiCreateComponent(lua_State* L)
+{
+	feEntity& entity = *static_cast<feEntity*>(lua_touserdata(L, 1));
+	std::string_view type = lua_tostring(L, 2);
+	
+	if (type == "Transform")
+	{
+		entity.CreateComponent<TransformComponent>();
+		auto* ptr = entity.TryGetComponent<TransformComponent>();
+		lua_pushlightuserdata(L, ptr);
+	}
+	else
+	{
+		lua_pushnil(L);
+	}
+
+	return 1;
+}
+
+int feApiComponentTransformSet(lua_State* L)
+{
+	TransformComponent* ptr = static_cast<TransformComponent*>(lua_touserdata(L, 1));
+
+	auto readFloat3 = [](lua_State* L)
+	{
+		lua_pushstring(L, "x");
+		lua_gettable(L, -2);
+
+		lua_pushstring(L, "y");
+		lua_gettable(L, -3);
+
+		lua_pushstring(L, "z");
+		lua_gettable(L, -4);
+
+		glm::vec3 pos;
+		pos.x = lua_tonumber(L, -3);
+		pos.y = lua_tonumber(L, -2);
+		pos.z = lua_tonumber(L, -1);
+
+		lua_pop(L, 3);
+
+		return pos;
+	};
+
+	auto readFloat4 = [](lua_State* L)
+	{
+		lua_pushstring(L, "x");
+		lua_gettable(L, -2);
+
+		lua_pushstring(L, "y");
+		lua_gettable(L, -3);
+
+		lua_pushstring(L, "z");
+		lua_gettable(L, -4);
+
+		lua_pushstring(L, "w");
+		lua_gettable(L, -5);
+
+		glm::vec4 pos;
+		pos.x = lua_tonumber(L, -4);
+		pos.y = lua_tonumber(L, -3);
+		pos.z = lua_tonumber(L, -2);
+		pos.w = lua_tonumber(L, -1);
+
+		lua_pop(L, 4);
+
+		return pos;
+	};
+
+	lua_pushstring(L, "pos");
+	lua_gettable(L, -2);
+	glm::vec3 pos = readFloat3(L);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "quat");
+	lua_gettable(L, -2);
+	glm::vec4 quat = readFloat4(L);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "sca");
+	lua_gettable(L, -2);
+	glm::vec3 sca = readFloat3(L);
+	lua_pop(L, 1);
+
+	ptr->transform.pos = pos;
+	ptr->transform.quat = glm::quat(quat.x, quat.y, quat.z, quat.w);
+	ptr->transform.sca = sca;
+
+	return 0;
+}
 
 feApplication* feApplication::CreateInstance()
 {

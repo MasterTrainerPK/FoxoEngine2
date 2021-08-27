@@ -5,6 +5,8 @@
 class feScript final
 {
 public:
+	static void PrintStack(lua_State* L);
+public:
 	feScript();
 	~feScript() noexcept;
 	feScript(const feScript&) = delete;
