@@ -3,6 +3,7 @@
 #include <optional>
 #include <unordered_map>
 #include <string>
+#include <unordered_set>
 
 #include <glad/gl.h>
 
@@ -13,6 +14,7 @@
 static struct feRenderUtilLoadedFlags final
 {
 	std::optional<unsigned char> version;
+	std::optional<std::unordered_set<std::string>> extensions;
 } s_Flags;
 
 static std::string GetOpenGLString(unsigned int value)
@@ -140,5 +142,30 @@ namespace feRenderUtil
 
 			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
 		}
+	}
+
+	static std::string s_TempExtensionContainer(64, '!');
+
+	bool IsExtensionSupported(std::string_view name)
+	{
+		if (!s_Flags.extensions)
+		{
+			// Load extensions if not cached
+			GLint numExt;
+			glGetIntegerv(GL_NUM_EXTENSIONS, &numExt);
+
+			std::unordered_set<std::string> set;
+			set.reserve(numExt);
+
+			for (int i = 0; i < numExt; ++i)
+				set.emplace((const char*) glGetStringi(GL_EXTENSIONS, i));
+
+			s_Flags.extensions = std::move(set);
+		}
+
+		std::unordered_set<std::string>& cache = s_Flags.extensions.value();
+		s_TempExtensionContainer = name;
+
+		return cache.find(s_TempExtensionContainer) != cache.end();
 	}
 };

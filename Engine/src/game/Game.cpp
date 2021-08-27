@@ -11,6 +11,7 @@
 #include "../engine/ResourceLoader.h"
 #include "../engine/renderer/Util.h"
 #include "../engine/renderer/Texture.h"
+#include "../engine/renderer/Framebuffer.h"
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
@@ -249,9 +250,11 @@ public:
 	feTransform transform;
 };
 
-int feApiCreateEntity(lua_State* L);
-int feApiCreateComponent(lua_State* L);
-int feApiComponentTransformSet(lua_State* L);
+class MeshFilterComponent final
+{
+public:
+	int a;
+};
 
 class Game : public feApplication
 {
@@ -366,12 +369,12 @@ public:
 		std::string_view view = vertSrc;
 		shaderInfo.sources = &view;
 		shaderInfo.sourceCount = 1;
-		shaderInfo.debugName = "Shader Vertex";
+		shaderInfo.debugName = "res/shaders/simple.vert";
 
 		shaders[0] = feShader(shaderInfo);
 
 		shaderInfo.type = GL_FRAGMENT_SHADER;
-		shaderInfo.debugName = "Shader Fragment";
+		shaderInfo.debugName = "res/shaders/simple.frag";
 		view = fragSrc;
 
 		shaders[1] = feShader(shaderInfo);
@@ -393,21 +396,158 @@ public:
 		textureInfo.height = image.GetHeight();
 		textureInfo.pixels = image.GetPixels();
 		textureInfo.format = GL_RGBA;
-		textureInfo.internalFormat = GL_RGBA8;
+		textureInfo.internalFormat = GL_SRGB8_ALPHA8;
 		textureInfo.type = GL_UNSIGNED_BYTE;
 		textureInfo.debugName = "res/textures/grass.png";
+		textureInfo.mipmaps = true;
+		textureInfo.filterMin = GL_LINEAR_MIPMAP_LINEAR;
+		textureInfo.filterMag = GL_LINEAR;
+		textureInfo.wrap = GL_REPEAT;
 		m_Texture = textureInfo;
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
 		m_Input.Set(m_EventDispatcher);
 
+		// Create renderbffers
+		{
+			feRenderbufferCreateInfo renderbufferInfo;
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.internalFormat = GL_RGBA8;
+			renderbufferInfo.debugName = "Custom Color Buffer";
+
+			m_FramebufferColorBuffer = renderbufferInfo;
+
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.internalFormat = GL_DEPTH_COMPONENT24;
+			renderbufferInfo.debugName = "Custom Depth Buffer";
+
+			m_FramebufferDepthBuffer = renderbufferInfo;
+
+			feFramebufferCreateInfoRenderbufferAttachmentInfo attachmentInfos[2];
+			attachmentInfos[0].attachment = GL_COLOR_ATTACHMENT0;
+			attachmentInfos[0].renderbuffer = &m_FramebufferColorBuffer;
+			attachmentInfos[1].attachment = GL_DEPTH_ATTACHMENT;
+			attachmentInfos[1].renderbuffer = &m_FramebufferDepthBuffer;
+
+			feFramebufferCreateInfo framebufferInfo;
+			framebufferInfo.renderbufferAttachments = attachmentInfos;
+			framebufferInfo.renderbufferAttachmentCount = 2;
+			framebufferInfo.debugName = "Custom Framebuffer";
+
+			m_Framebuffer = framebufferInfo;
+		}
+
 		// Loads the feApi
 		m_Script.RunFile("res/scripts/api.lua");
 
-		lua_register(m_Script.GetState(), "feApiCreateEntity", &feApiCreateEntity);
-		lua_register(m_Script.GetState(), "feApiCreateComponent", &feApiCreateComponent);
-		lua_register(m_Script.GetState(), "feApiComponentTransformSet", &feApiComponentTransformSet);
+		lua_register(m_Script.GetState(), "feApiCreateEntity", [](lua_State* L)
+		{
+			Game* game = static_cast<Game*>(lua_touserdata(L, 1));
+
+			feEntity entity = game->m_Scene.CreateEntity();
+			feEntity* luaEntity = static_cast<feEntity*>(lua_newuserdata(L, sizeof(feEntity)));
+			*luaEntity = entity;
+
+			return 1;
+		});
+
+		lua_register(m_Script.GetState(), "feApiCreateComponent", [](lua_State* L)
+		{
+			feEntity& entity = *static_cast<feEntity*>(lua_touserdata(L, 1));
+			std::string_view type = lua_tostring(L, 2);
+
+			if (type == "Transform")
+			{
+				auto& ref = entity.CreateComponent<TransformComponent>();
+				lua_pushlightuserdata(L, &ref);
+			}
+			else if (type == "MeshFilterComponent")
+			{
+				auto& ref = entity.CreateComponent<MeshFilterComponent>();
+				lua_pushlightuserdata(L, &ref);
+			}
+			else
+			{
+				lua_pushnil(L);
+			}
+
+			return 1;
+		});
+
+		lua_register(m_Script.GetState(), "feApiComponentTransformSet", [](lua_State* L)
+		{
+			TransformComponent* ptr = static_cast<TransformComponent*>(lua_touserdata(L, 1));
+
+			auto readFloat3 = [](lua_State* L)
+			{
+				lua_pushstring(L, "x");
+				lua_gettable(L, -2);
+
+				lua_pushstring(L, "y");
+				lua_gettable(L, -3);
+
+				lua_pushstring(L, "z");
+				lua_gettable(L, -4);
+
+				glm::vec3 pos;
+				pos.x = lua_tonumber(L, -3);
+				pos.y = lua_tonumber(L, -2);
+				pos.z = lua_tonumber(L, -1);
+
+				lua_pop(L, 3);
+
+				return pos;
+			};
+
+			auto readFloat4 = [](lua_State* L)
+			{
+				lua_pushstring(L, "x");
+				lua_gettable(L, -2);
+
+				lua_pushstring(L, "y");
+				lua_gettable(L, -3);
+
+				lua_pushstring(L, "z");
+				lua_gettable(L, -4);
+
+				lua_pushstring(L, "w");
+				lua_gettable(L, -5);
+
+				glm::vec4 pos;
+				pos.x = lua_tonumber(L, -4);
+				pos.y = lua_tonumber(L, -3);
+				pos.z = lua_tonumber(L, -2);
+				pos.w = lua_tonumber(L, -1);
+
+				lua_pop(L, 4);
+
+				return pos;
+			};
+
+			lua_pushstring(L, "pos");
+			lua_gettable(L, -2);
+			glm::vec3 pos = readFloat3(L);
+			lua_pop(L, 1);
+
+			lua_pushstring(L, "quat");
+			lua_gettable(L, -2);
+			glm::vec4 quat = readFloat4(L);
+			lua_pop(L, 1);
+
+			lua_pushstring(L, "sca");
+			lua_gettable(L, -2);
+			glm::vec3 sca = readFloat3(L);
+			lua_pop(L, 1);
+
+			ptr->transform.pos = pos;
+			ptr->transform.quat = glm::quat(quat.x, quat.y, quat.z, quat.w);
+			ptr->transform.sca = sca;
+
+			return 0;
+		});
 		
 		// Load the script
 		m_Script.RunFile("res/scripts/game.lua");
@@ -457,16 +597,13 @@ public:
 		m_Input.Update();
 
 		{
-			auto view = m_Scene.m_Registry.view<TransformComponent>();
+			auto view = m_Scene.m_Registry.view<TransformComponent, MeshFilterComponent>();
 
 			for (auto id : view)
 			{
-				auto& [transform] = view.get(id);
+				auto& [transform, meshFilter] = view.get(id);
 
-				if (!m_Scene.m_Registry.try_get<CameraComponent>(id))
-				{
-					transform.transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
-				}
+				transform.transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
 			}
 		}
 
@@ -506,7 +643,10 @@ public:
 			auto [w, h] = m_Window.GetViewportSize();
 			if (w == 0 || h == 0) return;
 
-			feRenderUtil::Viewport(0, 0, w, h);
+			m_Framebuffer.Bind();
+
+			// feRenderUtil::Viewport(0, 0, w, h);
+			feRenderUtil::Viewport(0, 0, m_FramebufferWidth, m_FramebufferHeight);
 			feRenderUtil::Clear();
 
 			if (cameraCamera->attached) cameraCamera->aspect = m_Window.GetAspect();
@@ -519,18 +659,38 @@ public:
 			m_Vao.Bind();
 
 			{
-				auto view = m_Scene.m_Registry.view<TransformComponent>();
+				auto view = m_Scene.m_Registry.view<TransformComponent, MeshFilterComponent>();
 
 				for (auto id : view)
 				{
-					auto& [transform] = view.get(id);
+					auto& [transform, meshFilter] = view.get(id);
 
-					if (!m_Scene.m_Registry.try_get<CameraComponent>(id))
-					{
-						m_Program.UniformMat4f("u_Model", transform.transform.GetMatrix());
-						m_Vao.Draw();
-					}
+					m_Program.UniformMat4f("u_Model", transform.transform.GetMatrix());
+					m_Vao.Draw();					
 				}
+			}
+
+			{
+				feFramebufferBlitInfo info;
+
+				feFramebuffer defaultFbo = feFramebuffer();
+
+				info.dest = &defaultFbo;
+
+				info.srcX0 = 0;
+				info.srcX1 = m_FramebufferWidth;
+				info.srcY0 = 0;
+				info.srcY1 = m_FramebufferHeight;
+
+				info.dstX0 = 0;
+				info.dstX1 = w;
+				info.dstY0 = 0;
+				info.dstY1 = h;
+
+				info.mask = GL_COLOR_BUFFER_BIT;
+				info.filter = GL_NEAREST;
+
+				m_Framebuffer.Blit(info);
 			}
 		}
 
@@ -556,109 +716,14 @@ private:
 	
 	Input m_Input;
 	Config m_Config;
+
+	// Fbo info
+	feFramebuffer m_Framebuffer;
+	feRenderbuffer m_FramebufferColorBuffer;
+	feRenderbuffer m_FramebufferDepthBuffer;
+	int m_FramebufferWidth = 160;
+	int m_FramebufferHeight = 90;
 };
-
-int feApiCreateEntity(lua_State* L)
-{
-	Game* game = static_cast<Game*>(lua_touserdata(L, 1));
-
-	feEntity entity = game->m_Scene.CreateEntity();
-	feEntity* luaEntity = static_cast<feEntity*>(lua_newuserdata(L, sizeof(feEntity)));
-	*luaEntity = entity;
-
-	return 1;
-}
-
-int feApiCreateComponent(lua_State* L)
-{
-	feEntity& entity = *static_cast<feEntity*>(lua_touserdata(L, 1));
-	std::string_view type = lua_tostring(L, 2);
-	
-	if (type == "Transform")
-	{
-		entity.CreateComponent<TransformComponent>();
-		auto* ptr = entity.TryGetComponent<TransformComponent>();
-		lua_pushlightuserdata(L, ptr);
-	}
-	else
-	{
-		lua_pushnil(L);
-	}
-
-	return 1;
-}
-
-int feApiComponentTransformSet(lua_State* L)
-{
-	TransformComponent* ptr = static_cast<TransformComponent*>(lua_touserdata(L, 1));
-
-	auto readFloat3 = [](lua_State* L)
-	{
-		lua_pushstring(L, "x");
-		lua_gettable(L, -2);
-
-		lua_pushstring(L, "y");
-		lua_gettable(L, -3);
-
-		lua_pushstring(L, "z");
-		lua_gettable(L, -4);
-
-		glm::vec3 pos;
-		pos.x = lua_tonumber(L, -3);
-		pos.y = lua_tonumber(L, -2);
-		pos.z = lua_tonumber(L, -1);
-
-		lua_pop(L, 3);
-
-		return pos;
-	};
-
-	auto readFloat4 = [](lua_State* L)
-	{
-		lua_pushstring(L, "x");
-		lua_gettable(L, -2);
-
-		lua_pushstring(L, "y");
-		lua_gettable(L, -3);
-
-		lua_pushstring(L, "z");
-		lua_gettable(L, -4);
-
-		lua_pushstring(L, "w");
-		lua_gettable(L, -5);
-
-		glm::vec4 pos;
-		pos.x = lua_tonumber(L, -4);
-		pos.y = lua_tonumber(L, -3);
-		pos.z = lua_tonumber(L, -2);
-		pos.w = lua_tonumber(L, -1);
-
-		lua_pop(L, 4);
-
-		return pos;
-	};
-
-	lua_pushstring(L, "pos");
-	lua_gettable(L, -2);
-	glm::vec3 pos = readFloat3(L);
-	lua_pop(L, 1);
-
-	lua_pushstring(L, "quat");
-	lua_gettable(L, -2);
-	glm::vec4 quat = readFloat4(L);
-	lua_pop(L, 1);
-
-	lua_pushstring(L, "sca");
-	lua_gettable(L, -2);
-	glm::vec3 sca = readFloat3(L);
-	lua_pop(L, 1);
-
-	ptr->transform.pos = pos;
-	ptr->transform.quat = glm::quat(quat.x, quat.y, quat.z, quat.w);
-	ptr->transform.sca = sca;
-
-	return 0;
-}
 
 feApplication* feApplication::CreateInstance()
 {

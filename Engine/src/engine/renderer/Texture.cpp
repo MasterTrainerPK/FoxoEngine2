@@ -24,26 +24,44 @@ feTexture::feTexture(const feTextureCreateInfo& info)
 	if (feRenderUtil::GetSupportedVersion() >= 45)
 	{
 		glCreateTextures(info.target, 1, &m_Handle);
-		glTextureParameteri(m_Handle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTextureParameteri(m_Handle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_R, GL_REPEAT);
+		glTextureParameteri(m_Handle, GL_TEXTURE_MIN_FILTER, info.filterMin);
+		glTextureParameteri(m_Handle, GL_TEXTURE_MAG_FILTER, info.filterMag);
+		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_S, info.wrap);
+		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_T, info.wrap);
+		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_R, info.wrap);
 		glTextureParameteri(m_Handle, GL_TEXTURE_MAX_LEVEL, maxLevel);
+
+		if (feRenderUtil::IsExtensionSupported("GL_EXT_texture_filter_anisotropic"))
+		{
+			float val;
+			glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &val);
+			glTextureParameterf(m_Handle, GL_TEXTURE_MAX_ANISOTROPY_EXT, val);
+		}
+
 		glTextureStorage2D(m_Handle, maxLevel + 1, info.internalFormat, info.width, info.height);
-		if(info.pixels) glTextureSubImage2D(m_Handle, 0, 0, 0, info.width, info.height, info.format, info.type, info.pixels);
+		if (info.pixels) glTextureSubImage2D(m_Handle, 0, 0, 0, info.width, info.height, info.format, info.type, info.pixels);
+		if (info.mipmaps) glGenerateTextureMipmap(m_Handle);
 	}
 	else
 	{
 		glGenTextures(1, &m_Handle);
 		glBindTexture(m_Target, m_Handle);
-		glTexParameteri(m_Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(m_Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(m_Target, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(m_Target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(m_Target, GL_TEXTURE_WRAP_R, GL_REPEAT);
+		glTexParameteri(m_Target, GL_TEXTURE_MIN_FILTER, info.filterMin);
+		glTexParameteri(m_Target, GL_TEXTURE_MAG_FILTER, info.filterMag);
+		glTexParameteri(m_Target, GL_TEXTURE_WRAP_S, info.wrap);
+		glTexParameteri(m_Target, GL_TEXTURE_WRAP_T, info.wrap);
+		glTexParameteri(m_Target, GL_TEXTURE_WRAP_R, info.wrap);
 		glTexParameteri(m_Target, GL_TEXTURE_MAX_LEVEL, maxLevel);
+
+		if (feRenderUtil::IsExtensionSupported("GL_EXT_texture_filter_anisotropic"))
+		{
+			float val;
+			glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &val);
+			glTextureParameterf(m_Handle, GL_TEXTURE_MAX_ANISOTROPY_EXT, val);
+		}
+
 		glTexImage2D(m_Target, 0, info.internalFormat, info.width, info.height, 0, info.format, info.type, info.pixels);
+		if (info.mipmaps) glGenerateMipmap(m_Target);
 		glBindTexture(m_Target, 0);
 	}
 

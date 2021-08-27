@@ -10,6 +10,11 @@ struct feTextureCreateInfo final
 	unsigned int type = 0;
 	const void* pixels = nullptr;
 
+	unsigned int filterMin = 0;
+	unsigned int filterMag = 0;
+	unsigned int wrap = 0;
+	bool mipmaps = false;
+
 	const char* debugName = nullptr;
 };
 
@@ -30,4 +35,6 @@ public:
 private:
 	unsigned int m_Handle = 0;
 	unsigned int m_Target = 0;
+
+	friend class feFramebuffer;
 };

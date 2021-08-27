@@ -16,6 +16,7 @@ function Init(ctx)
 
 		local entity = feApiCreateEntity(ctx)
 		local component = feApiCreateComponent(entity, "Transform")
+		feApiCreateComponent(entity, "MeshFilterComponent")
 
 		if component ~= nil
 		then
