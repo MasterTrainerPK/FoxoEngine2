@@ -57,6 +57,12 @@ static std::string GetOpenGLString(unsigned int value)
 
 static void OpenGLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)
 {
+	// API PERFORMANCE MEDIUM 131219
+	// Program/Shader state performance warning
+	// x is being recompiled based on GL state
+	// -- Ignore --
+	if (id == 131218) return;
+	
 	feLog::Error("{}, {}, {}, {}: {}", GetOpenGLString(source), GetOpenGLString(type), GetOpenGLString(severity), GetOpenGLString(id), message);
 	if (severity == GL_DEBUG_SEVERITY_HIGH) feLog::Break();
 }
@@ -99,7 +105,6 @@ namespace feRenderUtil
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-		glEnable(GL_FRAMEBUFFER_SRGB);
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
 	}

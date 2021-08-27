@@ -20,13 +20,13 @@ feRenderbuffer::feRenderbuffer(const feRenderbufferCreateInfo& info)
 	if (feRenderUtil::GetSupportedVersion() >= 45)
 	{
 		glCreateRenderbuffers(1, &m_Handle);
-		glNamedRenderbufferStorage(m_Handle, info.internalFormat, info.width, info.height);
+		glNamedRenderbufferStorageMultisample(m_Handle, info.samples, info.internalFormat, info.width, info.height);
 	}
 	else
 	{
 		glGenRenderbuffers(1, &m_Handle);
 		glBindRenderbuffer(GL_RENDERBUFFER, m_Handle);
-		glRenderbufferStorage(GL_RENDERBUFFER, info.internalFormat, info.width, info.height);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, info.samples, info.internalFormat, info.width, info.height);
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	}
 
@@ -150,7 +150,14 @@ void feFramebuffer::BindDraw() const
 
 void feFramebuffer::Blit(const feFramebufferBlitInfo& info) const
 {
-	BindRead();
-	info.dest->BindDraw();
-	glBlitFramebuffer(info.srcX0, info.srcY0, info.srcX1, info.srcY1, info.dstX0, info.dstY0, info.dstX1, info.dstY1, info.mask, info.filter);
+	if (feRenderUtil::GetSupportedVersion() >= 45)
+	{
+		glBlitNamedFramebuffer(m_Handle, info.dest->m_Handle, info.srcX0, info.srcY0, info.srcX1, info.srcY1, info.dstX0, info.dstY0, info.dstX1, info.dstY1, info.mask, info.filter);
+	}
+	else
+	{
+		BindRead();
+		info.dest->BindDraw();
+		glBlitFramebuffer(info.srcX0, info.srcY0, info.srcX1, info.srcY1, info.dstX0, info.dstY0, info.dstX1, info.dstY1, info.mask, info.filter);
+	}
 }

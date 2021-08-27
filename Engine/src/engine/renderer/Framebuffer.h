@@ -7,6 +7,7 @@ struct feRenderbufferCreateInfo final
 	int width = 0;
 	int height = 0;
 	unsigned int internalFormat = 0;
+	int samples = 0;
 
 	const char* debugName = nullptr;
 };

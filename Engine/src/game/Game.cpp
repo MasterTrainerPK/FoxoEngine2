@@ -33,9 +33,9 @@ static void MakeWindow(feWindow& window, int width, int height, unsigned char ve
 	info.contextForwardCompat = useNewStuff;
 	info.contextProfileCore = useNewStuff;
 #if defined(FE_CONF_DIST)
-	info.contextDebug = true;
-#else
 	info.contextDebug = false;
+#else
+	info.contextDebug = true;
 #endif
 
 	info.visible = visible;
@@ -261,6 +261,82 @@ class Game : public feApplication
 public:
 	virtual ~Game() noexcept = default;
 
+	void UpdateFrameBuffer(int w, int h)
+	{
+		if (m_FramebufferWidth == w && m_FramebufferHeight == h) return;
+
+		m_FramebufferWidth = w;
+		m_FramebufferHeight = h;
+
+		{
+			int maxSamples;
+			glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+
+			feLog::Info("GL_MAX_SAMPELS = {}", maxSamples);
+
+			feRenderbufferCreateInfo renderbufferInfo;
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.samples = maxSamples;
+			renderbufferInfo.internalFormat = GL_RGBA8;
+			renderbufferInfo.debugName = "Custom Color Buffer Multisample";
+
+			m_FramebufferColorBufferMultisample = renderbufferInfo;
+
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.samples = maxSamples;
+			renderbufferInfo.internalFormat = GL_DEPTH_COMPONENT24;
+			renderbufferInfo.debugName = "Custom Depth Buffer Multisample";
+
+			m_FramebufferDepthBufferMultisample = renderbufferInfo;
+
+			feFramebufferCreateInfoRenderbufferAttachmentInfo attachmentInfos[2];
+			attachmentInfos[0].attachment = GL_COLOR_ATTACHMENT0;
+			attachmentInfos[0].renderbuffer = &m_FramebufferColorBufferMultisample;
+			attachmentInfos[1].attachment = GL_DEPTH_ATTACHMENT;
+			attachmentInfos[1].renderbuffer = &m_FramebufferDepthBufferMultisample;
+
+			feFramebufferCreateInfo framebufferInfo;
+			framebufferInfo.renderbufferAttachments = attachmentInfos;
+			framebufferInfo.renderbufferAttachmentCount = 2;
+			framebufferInfo.debugName = "Custom Framebuffer Multisample";
+
+			m_FramebufferMultisample = framebufferInfo;
+		}
+
+		// Create renderbffers
+		{
+			feRenderbufferCreateInfo renderbufferInfo;
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.internalFormat = GL_SRGB8_ALPHA8;
+			renderbufferInfo.debugName = "Custom Color Buffer";
+
+			m_FramebufferColorBuffer = renderbufferInfo;
+
+			renderbufferInfo.width = m_FramebufferWidth;
+			renderbufferInfo.height = m_FramebufferHeight;
+			renderbufferInfo.internalFormat = GL_DEPTH_COMPONENT24;
+			renderbufferInfo.debugName = "Custom Depth Buffer";
+
+			m_FramebufferDepthBuffer = renderbufferInfo;
+
+			feFramebufferCreateInfoRenderbufferAttachmentInfo attachmentInfos[2];
+			attachmentInfos[0].attachment = GL_COLOR_ATTACHMENT0;
+			attachmentInfos[0].renderbuffer = &m_FramebufferColorBuffer;
+			attachmentInfos[1].attachment = GL_DEPTH_ATTACHMENT;
+			attachmentInfos[1].renderbuffer = &m_FramebufferDepthBuffer;
+
+			feFramebufferCreateInfo framebufferInfo;
+			framebufferInfo.renderbufferAttachments = attachmentInfos;
+			framebufferInfo.renderbufferAttachmentCount = 2;
+			framebufferInfo.debugName = "Custom Framebuffer";
+
+			m_Framebuffer = framebufferInfo;
+		}
+	}
+
 	virtual void Init() override
 	{
 		m_Config.LoadConfig();
@@ -325,120 +401,95 @@ public:
 
 			m_Ibo = info;
 		}
-		
-		feVertexArrayCreateInfoBufferObjectInfo vaoVboInfo;
-		vaoVboInfo.buffer = &m_Vbo;
-		vaoVboInfo.stride = 8 * sizeof(float);
 
-		feVertexArrayCreateInfoAttributeInfo attributeInfos[3];
+		{
+			feVertexArrayCreateInfoBufferObjectInfo vaoVboInfo;
+			vaoVboInfo.buffer = &m_Vbo;
+			vaoVboInfo.stride = 8 * sizeof(float);
 
-		attributeInfos[0].buffer = 0;
-		attributeInfos[0].offset = 0 * sizeof(float);
-		attributeInfos[0].size = 3;
-		attributeInfos[0].type = GL_FLOAT;
+			feVertexArrayCreateInfoAttributeInfo attributeInfos[3];
 
-		attributeInfos[1].buffer = 0;
-		attributeInfos[1].offset = 3 * sizeof(float);
-		attributeInfos[1].size = 3;
-		attributeInfos[1].type = GL_FLOAT;
+			attributeInfos[0].buffer = 0;
+			attributeInfos[0].offset = 0 * sizeof(float);
+			attributeInfos[0].size = 3;
+			attributeInfos[0].type = GL_FLOAT;
 
-		attributeInfos[2].buffer = 0;
-		attributeInfos[2].offset = 5 * sizeof(float);
-		attributeInfos[2].size = 2;
-		attributeInfos[2].type = GL_FLOAT;
+			attributeInfos[1].buffer = 0;
+			attributeInfos[1].offset = 3 * sizeof(float);
+			attributeInfos[1].size = 3;
+			attributeInfos[1].type = GL_FLOAT;
 
-		feVertexArrayCreateInfo vaoInfo;
-		vaoInfo.attributeInfos = attributeInfos;
-		vaoInfo.attributeInfoCount = 3;
-		vaoInfo.count = sphere.getIndexCount();
-		vaoInfo.mode = GL_TRIANGLES;
-		vaoInfo.vertexBufferInfos = &vaoVboInfo;
-		vaoInfo.vertexBufferInfoCount = 1;
-		vaoInfo.indexBuffer = &m_Ibo;
-		vaoInfo.debugName = "Sphere vao";
+			attributeInfos[2].buffer = 0;
+			attributeInfos[2].offset = 5 * sizeof(float);
+			attributeInfos[2].size = 2;
+			attributeInfos[2].type = GL_FLOAT;
 
-		m_Vao = vaoInfo;
+			feVertexArrayCreateInfo vaoInfo;
+			vaoInfo.attributeInfos = attributeInfos;
+			vaoInfo.attributeInfoCount = 3;
+			vaoInfo.count = sphere.getIndexCount();
+			vaoInfo.mode = GL_TRIANGLES;
+			vaoInfo.vertexBufferInfos = &vaoVboInfo;
+			vaoInfo.vertexBufferInfoCount = 1;
+			vaoInfo.indexBuffer = &m_Ibo;
+			vaoInfo.debugName = "Sphere vao";
 
-		std::string vertSrc = feResourceLoader::LoadTextFile("res/shaders/simple.vert").value();
-		std::string fragSrc = feResourceLoader::LoadTextFile("res/shaders/simple.frag").value();
+			m_Vao = vaoInfo;
+		}
 
-		feShader shaders[2];
+		{
+			std::string vertSrc = feResourceLoader::LoadTextFile("res/shaders/simple.vert").value();
+			std::string fragSrc = feResourceLoader::LoadTextFile("res/shaders/simple.frag").value();
 
-		feShaderCreateInfo shaderInfo;
-		shaderInfo.type = GL_VERTEX_SHADER;
-		std::string_view view = vertSrc;
-		shaderInfo.sources = &view;
-		shaderInfo.sourceCount = 1;
-		shaderInfo.debugName = "res/shaders/simple.vert";
+			feShader shaders[2];
 
-		shaders[0] = feShader(shaderInfo);
+			feShaderCreateInfo shaderInfo;
+			shaderInfo.type = GL_VERTEX_SHADER;
+			std::string_view view = vertSrc;
+			shaderInfo.sources = &view;
+			shaderInfo.sourceCount = 1;
+			shaderInfo.debugName = "res/shaders/simple.vert";
 
-		shaderInfo.type = GL_FRAGMENT_SHADER;
-		shaderInfo.debugName = "res/shaders/simple.frag";
-		view = fragSrc;
+			shaders[0] = feShader(shaderInfo);
 
-		shaders[1] = feShader(shaderInfo);
+			shaderInfo.type = GL_FRAGMENT_SHADER;
+			shaderInfo.debugName = "res/shaders/simple.frag";
+			view = fragSrc;
 
-		feProgramCreateInfo programInfo;
-		programInfo.shaders = shaders;
-		programInfo.shaderCount = 2;
-		programInfo.debugName = "Main Program";
+			shaders[1] = feShader(shaderInfo);
 
-		m_Program = programInfo;
-		m_Program.Bind();
-		m_Program.Uniform1i("u_Albedo", 0);
+			feProgramCreateInfo programInfo;
+			programInfo.shaders = shaders;
+			programInfo.shaderCount = 2;
+			programInfo.debugName = "Main Program";
 
-		feImage image("res/textures/grass.png", 4);
+			m_Program = programInfo;
+			m_Program.Bind();
+			m_Program.Uniform1i("u_Albedo", 0);
+		}
 
-		feTextureCreateInfo textureInfo;
-		textureInfo.target = GL_TEXTURE_2D;
-		textureInfo.width = image.GetWidth();
-		textureInfo.height = image.GetHeight();
-		textureInfo.pixels = image.GetPixels();
-		textureInfo.format = GL_RGBA;
-		textureInfo.internalFormat = GL_SRGB8_ALPHA8;
-		textureInfo.type = GL_UNSIGNED_BYTE;
-		textureInfo.debugName = "res/textures/grass.png";
-		textureInfo.mipmaps = true;
-		textureInfo.filterMin = GL_LINEAR_MIPMAP_LINEAR;
-		textureInfo.filterMag = GL_LINEAR;
-		textureInfo.wrap = GL_REPEAT;
-		m_Texture = textureInfo;
+		{
+			feImage image("res/textures/grass.png", 4);
+
+			feTextureCreateInfo textureInfo;
+			textureInfo.target = GL_TEXTURE_2D;
+			textureInfo.width = image.GetWidth();
+			textureInfo.height = image.GetHeight();
+			textureInfo.pixels = image.GetPixels();
+			textureInfo.format = GL_RGBA;
+			textureInfo.internalFormat = GL_SRGB8_ALPHA8;
+			textureInfo.type = GL_UNSIGNED_BYTE;
+			textureInfo.debugName = "res/textures/grass.png";
+			textureInfo.mipmaps = true;
+			textureInfo.filterMin = GL_LINEAR_MIPMAP_LINEAR;
+			textureInfo.filterMag = GL_LINEAR;
+			textureInfo.wrap = GL_REPEAT;
+			m_Texture = textureInfo;
+		}
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
 		m_Input.Set(m_EventDispatcher);
-
-		// Create renderbffers
-		{
-			feRenderbufferCreateInfo renderbufferInfo;
-			renderbufferInfo.width = m_FramebufferWidth;
-			renderbufferInfo.height = m_FramebufferHeight;
-			renderbufferInfo.internalFormat = GL_RGBA8;
-			renderbufferInfo.debugName = "Custom Color Buffer";
-
-			m_FramebufferColorBuffer = renderbufferInfo;
-
-			renderbufferInfo.width = m_FramebufferWidth;
-			renderbufferInfo.height = m_FramebufferHeight;
-			renderbufferInfo.internalFormat = GL_DEPTH_COMPONENT24;
-			renderbufferInfo.debugName = "Custom Depth Buffer";
-
-			m_FramebufferDepthBuffer = renderbufferInfo;
-
-			feFramebufferCreateInfoRenderbufferAttachmentInfo attachmentInfos[2];
-			attachmentInfos[0].attachment = GL_COLOR_ATTACHMENT0;
-			attachmentInfos[0].renderbuffer = &m_FramebufferColorBuffer;
-			attachmentInfos[1].attachment = GL_DEPTH_ATTACHMENT;
-			attachmentInfos[1].renderbuffer = &m_FramebufferDepthBuffer;
-
-			feFramebufferCreateInfo framebufferInfo;
-			framebufferInfo.renderbufferAttachments = attachmentInfos;
-			framebufferInfo.renderbufferAttachmentCount = 2;
-			framebufferInfo.debugName = "Custom Framebuffer";
-
-			m_Framebuffer = framebufferInfo;
-		}
 
 		// Loads the feApi
 		m_Script.RunFile("res/scripts/api.lua");
@@ -643,7 +694,11 @@ public:
 			auto [w, h] = m_Window.GetViewportSize();
 			if (w == 0 || h == 0) return;
 
-			m_Framebuffer.Bind();
+			UpdateFrameBuffer(w, h);
+
+			
+
+			m_FramebufferMultisample.Bind();
 
 			// feRenderUtil::Viewport(0, 0, w, h);
 			feRenderUtil::Viewport(0, 0, m_FramebufferWidth, m_FramebufferHeight);
@@ -675,7 +730,7 @@ public:
 
 				feFramebuffer defaultFbo = feFramebuffer();
 
-				info.dest = &defaultFbo;
+				info.dest = &m_Framebuffer;
 
 				info.srcX0 = 0;
 				info.srcX1 = m_FramebufferWidth;
@@ -683,12 +738,23 @@ public:
 				info.srcY1 = m_FramebufferHeight;
 
 				info.dstX0 = 0;
-				info.dstX1 = w;
+				info.dstX1 = m_FramebufferWidth;
 				info.dstY0 = 0;
-				info.dstY1 = h;
+				info.dstY1 = m_FramebufferHeight;
 
 				info.mask = GL_COLOR_BUFFER_BIT;
 				info.filter = GL_NEAREST;
+
+				
+				glEnable(GL_FRAMEBUFFER_SRGB);
+				m_FramebufferMultisample.Blit(info);
+				glDisable(GL_FRAMEBUFFER_SRGB);
+
+				info.dest = &defaultFbo;
+				info.dstX0 = 0;
+				info.dstX1 = w;
+				info.dstY0 = 0;
+				info.dstY1 = h;
 
 				m_Framebuffer.Blit(info);
 			}
@@ -721,8 +787,12 @@ private:
 	feFramebuffer m_Framebuffer;
 	feRenderbuffer m_FramebufferColorBuffer;
 	feRenderbuffer m_FramebufferDepthBuffer;
-	int m_FramebufferWidth = 160;
-	int m_FramebufferHeight = 90;
+
+	feFramebuffer m_FramebufferMultisample;
+	feRenderbuffer m_FramebufferColorBufferMultisample;
+	feRenderbuffer m_FramebufferDepthBufferMultisample;
+	int m_FramebufferWidth = -1;
+	int m_FramebufferHeight = -1;
 };
 
 feApplication* feApplication::CreateInstance()
