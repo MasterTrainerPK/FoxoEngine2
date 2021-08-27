@@ -19,15 +19,17 @@ feTexture::feTexture(const feTextureCreateInfo& info)
 {
 	m_Target = info.target;
 
+	int maxLevel = feMath::FastFloor(glm::log2(static_cast<float>(feMath::Max(info.width, info.height))));
+
 	if (feRenderUtil::GetSupportedVersion() >= 45)
 	{
-		int maxLevel = feMath::FastFloor(glm::log2(static_cast<float>(feMath::Max(info.width, info.height))));
 		glCreateTextures(info.target, 1, &m_Handle);
 		glTextureParameteri(m_Handle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTextureParameteri(m_Handle, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_R, GL_REPEAT);
+		glTextureParameteri(m_Handle, GL_TEXTURE_MAX_LEVEL, maxLevel);
 		glTextureStorage2D(m_Handle, maxLevel + 1, info.internalFormat, info.width, info.height);
 		if(info.pixels) glTextureSubImage2D(m_Handle, 0, 0, 0, info.width, info.height, info.format, info.type, info.pixels);
 	}
@@ -40,6 +42,7 @@ feTexture::feTexture(const feTextureCreateInfo& info)
 		glTexParameteri(m_Target, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(m_Target, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(m_Target, GL_TEXTURE_WRAP_R, GL_REPEAT);
+		glTexParameteri(m_Target, GL_TEXTURE_MAX_LEVEL, maxLevel);
 		glTexImage2D(m_Target, 0, info.internalFormat, info.width, info.height, 0, info.format, info.type, info.pixels);
 		glBindTexture(m_Target, 0);
 	}
