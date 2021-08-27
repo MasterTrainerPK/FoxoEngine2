@@ -18,6 +18,7 @@ public:
 	void Start();
 	void Stop();
 	bool IsRunning() const;
+	/// Gets the frame time
 	double GetDeltaTime() const;
 protected:
 	virtual void Init();
