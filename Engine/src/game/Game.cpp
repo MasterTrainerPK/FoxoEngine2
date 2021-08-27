@@ -173,8 +173,63 @@ private:
 	feEventDispatcher* m_Dispatcher = nullptr;
 };
 
+void MoveCamera(feTransform& transform, const Input& input, float deltaTime, const Config& config)
+{
+	static bool m_CursorFree = true;
+
+	if (input.IsKeyPressed(GLFW_KEY_ESCAPE))
+	{
+		m_CursorFree = !m_CursorFree;
+		input.GetEventDispatcher().Dispatch<EventWindowMouseLock>(!m_CursorFree);
+	}
+
+	if (m_CursorFree) return;
+
+	glm::vec2 mouseDelta = input.GetMouseDelta();
+
+	if (glm::length2(mouseDelta) > 0)
+	{
+		glm::vec4 axis = transform.GetInverseMatrix() * glm::vec4(0, 1, 0, 0);
+
+		transform.Rotate(glm::radians(mouseDelta.x * -config.sensitivity), glm::vec3(axis));
+		transform.Rotate(glm::radians(mouseDelta.y * -config.sensitivity), glm::vec3(1, 0, 0));
+	}
+
+	glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
+	float speed = 10.0f;
+
+	if (input.IsKeyDown(config.m_KeyBindings.at("forward"))) --movementVector.z;
+	if (input.IsKeyDown(config.m_KeyBindings.at("back"))) ++movementVector.z;
+	if (input.IsKeyDown(config.m_KeyBindings.at("left"))) --movementVector.x;
+	if (input.IsKeyDown(config.m_KeyBindings.at("right"))) ++movementVector.x;
+	if (input.IsKeyDown(config.m_KeyBindings.at("down"))) --movementVector.y;
+	if (input.IsKeyDown(config.m_KeyBindings.at("up"))) ++movementVector.y;
+	if (input.IsKeyDown(config.m_KeyBindings.at("global_down"))) --movementVector.w;
+	if (input.IsKeyDown(config.m_KeyBindings.at("global_up"))) ++movementVector.w;
+	if (input.IsKeyDown(config.m_KeyBindings.at("sprint"))) speed = 30.0f;
+
+	if (glm::length2(movementVector) > 0)
+	{
+		movementVector = glm::normalize(movementVector);
+		movementVector *= speed * deltaTime;
+
+		glm::mat4 t = transform.GetMatrix();
+		t = glm::translate(t, glm::vec3(movementVector));
+		glm::vec4 axis = glm::inverse(t) * glm::vec4(0, 1, 0, 0);
+		t = glm::translate(t, glm::vec3(axis) * movementVector.w);
+
+		transform.SetMatrix(t);
+	}
+}
+
 class feCamera final
 {
+public:
+	glm::mat4 ProjectionMatrix()
+	{
+		return glm::perspective(glm::radians(fov), aspect, near, far);
+	}
+public:
 	float near = .1f;
 	float far = 1000.f;
 	float fov = 90.f;
@@ -182,62 +237,15 @@ class feCamera final
 	bool attached = true;
 };
 
-class Camera final
+class CameraComponent final
 {
 public:
-	void Move(const Input& input, float deltaTime, const Config& config)
-	{
-		if (input.IsKeyPressed(GLFW_KEY_ESCAPE))
-		{
-			m_CursorFree = !m_CursorFree;
-			input.GetEventDispatcher().Dispatch<EventWindowMouseLock>(!m_CursorFree);
-		}
-
-		if (m_CursorFree) return;
-
-		glm::vec2 mouseDelta = input.GetMouseDelta();
-		
-		if (glm::length2(mouseDelta) > 0)
-		{
-			glm::vec4 axis = glm::inverse(m_Transform.GetMatrix()) * glm::vec4(0, 1, 0, 0);
-
-			m_Transform.Rotate(glm::radians(mouseDelta.x * -config.sensitivity), glm::vec3(axis));
-			m_Transform.Rotate(glm::radians(mouseDelta.y * -config.sensitivity), glm::vec3(1, 0, 0));
-		}
-
-		glm::vec4 movementVector = glm::vec4(0, 0, 0, 0);
-		float speed = 10.0f;
-
-		if (input.IsKeyDown(config.m_KeyBindings.at("forward"))) --movementVector.z;
-		if (input.IsKeyDown(config.m_KeyBindings.at("back"))) ++movementVector.z;
-		if (input.IsKeyDown(config.m_KeyBindings.at("left"))) --movementVector.x;
-		if (input.IsKeyDown(config.m_KeyBindings.at("right"))) ++movementVector.x;
-		if (input.IsKeyDown(config.m_KeyBindings.at("down"))) --movementVector.y;
-		if (input.IsKeyDown(config.m_KeyBindings.at("up"))) ++movementVector.y;
-		if (input.IsKeyDown(config.m_KeyBindings.at("global_down"))) --movementVector.w;
-		if (input.IsKeyDown(config.m_KeyBindings.at("global_up"))) ++movementVector.w;
-		if (input.IsKeyDown(config.m_KeyBindings.at("sprint"))) speed = 30.0f;
-
-		if (glm::length2(movementVector) > 0)
-		{
-			movementVector = glm::normalize(movementVector);
-			movementVector *= speed * deltaTime;
-
-			glm::mat4 transform = m_Transform.GetMatrix();
-			transform = glm::translate(transform, glm::vec3(movementVector));
-			glm::vec4 axis = glm::inverse(transform) * glm::vec4(0, 1, 0, 0);
-			transform = glm::translate(transform, glm::vec3(axis) * movementVector.w);
-
-			m_Transform.SetMatrix(transform);
-		}
-	}
-public:
-	feTransform m_Transform;
-	bool m_CursorFree = true;
+	feCamera camera;
 };
 
-struct TransformComponent final
+class TransformComponent final
 {
+public:
 	feTransform transform;
 };
 
@@ -411,6 +419,13 @@ public:
 			lua_pushlightuserdata(m_Script.GetState(), this);
 			if(lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
 		}
+
+		// Create camera
+		{
+			feEntity entity = m_Scene.CreateEntity();
+			entity.CreateComponent<TransformComponent>();
+			entity.CreateComponent<CameraComponent>();
+		}
 	}
 
 	virtual void Destroy() override
@@ -441,10 +456,19 @@ public:
 	{
 		m_Input.Update();
 
-		auto [w, h] = m_Window.GetViewportSize();
+		{
+			auto view = m_Scene.m_Registry.view<TransformComponent>();
 
-		// Don't render if the window is iconified
-		if (w == 0 || h == 0) return;
+			for (auto id : view)
+			{
+				auto& [transform] = view.get(id);
+
+				if (!m_Scene.m_Registry.try_get<CameraComponent>(id))
+				{
+					transform.transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
+				}
+			}
+		}
 
 		// Call update function from script
 		lua_getglobal(m_Script.GetState(), "Update");
@@ -454,31 +478,59 @@ public:
 			if (lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
 		}
 
-		m_Camera.Move(m_Input, (float) GetDeltaTime(), m_Config);
+		feTransform* cameraTransform = nullptr;
+		feCamera* cameraCamera = nullptr;
 
-		feRenderUtil::Viewport(0, 0, w, h);
-		feRenderUtil::Clear();
-
-		glm::mat4 proj = glm::perspective(glm::radians(80.f), m_Window.GetAspect(), 0.1f, 100.0f);	
-
-		m_Texture.Bind(0);
-		m_Program.Bind();
-		m_Program.UniformMat4f("u_View", m_Camera.m_Transform.GetInverseMatrix());
-		m_Program.UniformMat4f("u_Proj", proj);
-		m_Vao.Bind();
-
+		// Look for any entities with both a transform and a camera
 		{
-			auto view = m_Scene.m_Registry.view<TransformComponent>();
+			auto view = m_Scene.m_Registry.view<TransformComponent, CameraComponent>();
 
 			for (auto id : view)
 			{
-				auto& [transform] = view.get(id);
-				
-				// Perform roation, temp
-				transform.transform.Rotate(glm::radians((float) GetDeltaTime() * 30), glm::normalize(glm::vec3(0.0f, 1.0f, 1.0f)));
+				auto& [transform, camera] = view.get(id);
 
-				m_Program.UniformMat4f("u_Model", transform.transform.GetMatrix());
-				m_Vao.Draw();
+				MoveCamera(transform.transform, m_Input, (float) GetDeltaTime(), m_Config);
+
+				if (!cameraTransform && !cameraCamera)
+				{
+					cameraTransform = &transform.transform;
+					cameraCamera = &camera.camera;
+				}
+			}
+		}
+
+		// Only render if an entity has both a camera and a transform
+		if (cameraTransform && cameraCamera)
+		{
+			// Don't render if the window is iconified
+			auto [w, h] = m_Window.GetViewportSize();
+			if (w == 0 || h == 0) return;
+
+			feRenderUtil::Viewport(0, 0, w, h);
+			feRenderUtil::Clear();
+
+			if (cameraCamera->attached) cameraCamera->aspect = m_Window.GetAspect();
+			glm::mat4 proj = cameraCamera->ProjectionMatrix();
+
+			m_Texture.Bind(0);
+			m_Program.Bind();
+			m_Program.UniformMat4f("u_View", cameraTransform->GetInverseMatrix());
+			m_Program.UniformMat4f("u_Proj", proj);
+			m_Vao.Bind();
+
+			{
+				auto view = m_Scene.m_Registry.view<TransformComponent>();
+
+				for (auto id : view)
+				{
+					auto& [transform] = view.get(id);
+
+					if (!m_Scene.m_Registry.try_get<CameraComponent>(id))
+					{
+						m_Program.UniformMat4f("u_Model", transform.transform.GetMatrix());
+						m_Vao.Draw();
+					}
+				}
 			}
 		}
 
@@ -502,9 +554,7 @@ private:
 	feTexture m_Texture;
 	feScript m_Script;
 	
-
 	Input m_Input;
-	Camera m_Camera;
 	Config m_Config;
 };
 
