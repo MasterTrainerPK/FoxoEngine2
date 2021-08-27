@@ -10,6 +10,7 @@
 #include "../engine/renderer/Shader.h"
 #include "../engine/ResourceLoader.h"
 #include "../engine/renderer/Util.h"
+#include "../engine/renderer/Texture.h"
 #include "../engine/math/Transform.h"
 #include "../engine/util/Sphere.h"
 #include "../engine/Event.h"
@@ -172,6 +173,15 @@ private:
 	feEventDispatcher* m_Dispatcher = nullptr;
 };
 
+class feCamera final
+{
+	float near = .1f;
+	float far = 1000.f;
+	float fov = 90.f;
+	float aspect = 1.f;
+	bool attached = true;
+};
+
 class Camera final
 {
 public:
@@ -283,7 +293,7 @@ public:
 		feRenderUtil::InitDefaults(0.7f, 0.8f, 0.9f, 1.0f);
 		feRenderUtil::SetupDebugLogger();
 
-		Sphere sphere = Sphere(1, 36, 18, false);
+		Sphere sphere = Sphere(1, 36, 18, true);
 
 		{
 			feBufferObjectCreateInfo info;
@@ -364,6 +374,21 @@ public:
 		programInfo.debugName = "Main Program";
 
 		m_Program = programInfo;
+		m_Program.Bind();
+		m_Program.Uniform1i("u_Albedo", 0);
+
+		feImage image("res/textures/grass.png", 4);
+
+		feTextureCreateInfo textureInfo;
+		textureInfo.target = GL_TEXTURE_2D;
+		textureInfo.width = image.GetWidth();
+		textureInfo.height = image.GetHeight();
+		textureInfo.pixels = image.GetPixels();
+		textureInfo.format = GL_RGBA;
+		textureInfo.internalFormat = GL_RGBA8;
+		textureInfo.type = GL_UNSIGNED_BYTE;
+		textureInfo.debugName = "res/textures/grass.png";
+		m_Texture = textureInfo;
 
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowClose);
 		m_EventDispatcher.Subscribe(this, &Game::OnWindowCursorModeChange);
@@ -375,7 +400,7 @@ public:
 		lua_register(m_Script.GetState(), "feApiCreateEntity", &feApiCreateEntity);
 		lua_register(m_Script.GetState(), "feApiCreateComponent", &feApiCreateComponent);
 		lua_register(m_Script.GetState(), "feApiComponentTransformSet", &feApiComponentTransformSet);
-
+		
 		// Load the script
 		m_Script.RunFile("res/scripts/game.lua");
 
@@ -386,18 +411,6 @@ public:
 			lua_pushlightuserdata(m_Script.GetState(), this);
 			if(lua_pcall(m_Script.GetState(), 1, 0, 0)) feLog::Error(lua_tostring(m_Script.GetState(), -1));
 		}
-
-		
-
-		/*for (size_t i = 0; i < 20; ++i)
-		{
-			constexpr float range = 20;
-
-			feEntity entity = m_Scene.CreateEntity();
-			auto& transform = entity.CreateComponent<TransformComponent>();
-			transform.transform.pos = { feMath::RNG(-range, range), feMath::RNG(-range, range), feMath::RNG(-range, range)};
-			transform.transform.sca = glm::vec3(feMath::RNG(1, 5));
-		}*/
 	}
 
 	virtual void Destroy() override
@@ -448,8 +461,8 @@ public:
 
 		glm::mat4 proj = glm::perspective(glm::radians(80.f), m_Window.GetAspect(), 0.1f, 100.0f);	
 
+		m_Texture.Bind(0);
 		m_Program.Bind();
-		m_Program.Uniform3f("u_Color", { 1.0f, 0.5f, 0.0f });
 		m_Program.UniformMat4f("u_View", m_Camera.m_Transform.GetInverseMatrix());
 		m_Program.UniformMat4f("u_Proj", proj);
 		m_Vao.Bind();
@@ -486,7 +499,7 @@ private:
 	feBufferObject m_Vbo;
 	feBufferObject m_Ibo;
 	feProgram m_Program;
-
+	feTexture m_Texture;
 	feScript m_Script;
 	
 
