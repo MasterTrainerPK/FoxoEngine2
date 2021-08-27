@@ -29,6 +29,7 @@ feTexture::feTexture(const feTextureCreateInfo& info)
 		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTextureParameteri(m_Handle, GL_TEXTURE_WRAP_R, GL_REPEAT);
 		glTextureStorage2D(m_Handle, maxLevel + 1, info.internalFormat, info.width, info.height);
+		if(info.pixels) glTextureSubImage2D(m_Handle, 0, 0, 0, info.width, info.height, info.format, info.type, info.pixels);
 	}
 	else
 	{
