@@ -11,7 +11,7 @@ glm::mat4 feTransform::GetMatrix() const
 	mat = glm::scale(mat, sca);
 	return mat;
 }
-
+//returns by setting skew and prespective
 void feTransform::SetMatrix(const glm::mat4& mat)
 {
 	glm::vec3 skew;

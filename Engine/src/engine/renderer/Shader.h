@@ -20,7 +20,9 @@ struct feShaderCreateInfo final
 class feShader final
 {
 public:
+	//handle to the shader
 	feShader(unsigned int handle = 0);
+	//creates the usable shader for opengl
 	feShader(const feShaderCreateInfo& info);
 	~feShader() noexcept;
 
@@ -58,6 +60,7 @@ public:
 
 	void Bind() const;
 
+	//Gets a uniform's location from it's name
 	int GetUniformLocation(std::string_view name) const;
 	void Uniform1f(std::string_view name, float v0) const;
 	void Uniform2f(std::string_view name, const glm::vec2& v0) const;

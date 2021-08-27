@@ -42,11 +42,14 @@ public:
 	void SwapBuffers() const;
 	[[nodiscard]] bool ShouldClose() const;
 	[[nodiscard]] std::pair<int, int> GetSize() const;
+	//gets the window's aspect ratio
 	[[nodiscard]] float GetAspect() const;
 	[[nodiscard]] std::pair<int, int> GetViewportSize() const;
+	//gets the veiwport's aspect ratio
 	[[nodiscard]] float GetViewportAspect() const;
 	void SetUserPointer(void* ptr) const;
 	void SetInputMode(int mode, int value) const;
+	//puts the window in the center of the screen.
 	void MakeCenter() const;
 	[[nodiscard]] GLFWwindow* GetHandle() const;
 private:

@@ -3,8 +3,14 @@
 class feApplication
 {
 public:
-	// To be defined in the client api
+
+	///
+	/// Should create an instance of your application
+	/// @returns pointer to your application instance
 	static feApplication* CreateInstance();
+	///
+	/// Should clean up and delete your application instance
+	/// @param aplication: pointer the instance to delete
 	static void DeleteInstance(feApplication* application);
 public:
 	virtual ~feApplication() noexcept = default;
