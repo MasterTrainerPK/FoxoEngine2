@@ -1,5 +1,5 @@
 #pragma once
-
+// to be defined in user api
 class feApplication
 {
 public:
