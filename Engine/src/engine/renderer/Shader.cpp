@@ -173,55 +173,66 @@ int feProgram::GetUniformLocation(std::string_view name) const
 
 void feProgram::Uniform1f(std::string_view name, float v0) const
 {
-	glUniform1f(GetUniformLocation(name), v0);
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform1f(m_Handle, GetUniformLocation(name), v0);
+	else glUniform1f(GetUniformLocation(name), v0);
 }
 
 void feProgram::Uniform2f(std::string_view name, const glm::vec2& v0) const
 {
-	glUniform2fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform2fv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform2fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::Uniform3f(std::string_view name, const glm::vec3& v0) const
 {
-	glUniform3fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform3fv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform3fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::Uniform4f(std::string_view name, const glm::vec4& v0) const
 {
-	glUniform4fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform4fv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform4fv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::Uniform1i(std::string_view name, int v0) const
 {
-	glUniform1i(GetUniformLocation(name), v0);
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform1i(m_Handle, GetUniformLocation(name), v0);
+	else glUniform1i(GetUniformLocation(name), v0);
 }
 
 void feProgram::Uniform2i(std::string_view name, const glm::ivec2& v0) const
 {
-	glUniform2iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform2iv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform2iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::Uniform3i(std::string_view name, const glm::ivec3& v0) const
 {
-	glUniform3iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform3iv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform3iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::Uniform4i(std::string_view name, const glm::ivec4& v0) const
 {
-	glUniform4iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniform4iv(m_Handle, GetUniformLocation(name), 1, glm::value_ptr(v0));
+	else glUniform4iv(GetUniformLocation(name), 1, glm::value_ptr(v0));
 }
 
 void feProgram::UniformMat2f(std::string_view name, const glm::mat2& v0) const
 {
-	glUniformMatrix2fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniformMatrix2fv(m_Handle, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	else glUniformMatrix2fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
 }
 
 void feProgram::UniformMat3f(std::string_view name, const glm::mat3& v0) const
 {
-	glUniformMatrix3fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniformMatrix3fv(m_Handle, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	else glUniformMatrix3fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
 }
 
 void feProgram::UniformMat4f(std::string_view name, const glm::mat4& v0) const
 {
-	glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	if (feRenderUtil::GetSupportedVersion() >= 41) glProgramUniformMatrix4fv(m_Handle, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
+	else glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(v0));
 }

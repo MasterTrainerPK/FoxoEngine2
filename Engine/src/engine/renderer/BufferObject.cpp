@@ -16,10 +16,18 @@ feBufferObject::feBufferObject(const feBufferObjectCreateInfo& info)
 {
 	m_Target = info.target;
 
-	glGenBuffers(1, &m_Handle);
-	glBindBuffer(m_Target, m_Handle);
-	glBufferData(m_Target, info.size, info.data, GL_STATIC_DRAW);
-	glBindBuffer(m_Target, 0);
+	if (feRenderUtil::GetSupportedVersion() >= 45)
+	{
+		glCreateBuffers(1, &m_Handle);
+		glNamedBufferData(m_Handle, info.size, info.data, GL_STATIC_DRAW);
+	}
+	else
+	{
+		glGenBuffers(1, &m_Handle);
+		glBindBuffer(m_Target, m_Handle);
+		glBufferData(m_Target, info.size, info.data, GL_STATIC_DRAW);
+		glBindBuffer(m_Target, 0);
+	}
 
 	if (info.debugName && feRenderUtil::GetSupportedVersion() >= 43) glObjectLabel(GL_BUFFER, m_Handle, -1, info.debugName);
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 namespace feRenderUtil
 {
 	void ClearLoadedFlag();
@@ -10,4 +12,5 @@ namespace feRenderUtil
 	void InitDefaults(float r, float g, float b, float a);
 	void LogOpenGLInfo();
 	void SetupDebugLogger();
+	bool IsExtensionSupported(std::string_view name);
 };

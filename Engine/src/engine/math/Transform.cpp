@@ -11,7 +11,13 @@ glm::mat4 feTransform::GetMatrix() const
 	mat = glm::scale(mat, sca);
 	return mat;
 }
-//returns by setting skew and prespective
+
+glm::mat4 feTransform::GetInverseMatrix() const
+{
+	return glm::inverse(GetMatrix());
+}
+
+// Decomposes the matrix and discards the skew and perspective
 void feTransform::SetMatrix(const glm::mat4& mat)
 {
 	glm::vec3 skew;
@@ -30,4 +36,9 @@ void feTransform::Rotate(float angle, const glm::vec3& axis)
 
 	// Convers the rotation to a matrix and uses that to apply the quaternion
 	quat = glm::normalize(glm::toQuat(glm::rotate(glm::toMat4(quat), angle, axis)));
+}
+
+void feTransform::Validate()
+{
+	SetMatrix(GetMatrix());
 }

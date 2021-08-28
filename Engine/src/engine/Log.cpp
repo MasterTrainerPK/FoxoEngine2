@@ -5,9 +5,12 @@
 #endif
 
 #include <spdlog/spdlog.h>
+#include <tinyfiledialogs.h>
 
 #include "../vendor/debug-trap.h"
 
+/// This structure is only here so that you dont have to explicitly setup logging
+/// Since this is a global variable, this will be constructed before the main function gets called
 static struct SpdlogStaticInitializer final
 {
 	SpdlogStaticInitializer()
@@ -53,13 +56,19 @@ namespace feLog
 	void Critical(std::string_view string)
 	{
 		spdlog::critical(string);
+		tinyfd_messageBox("A critical error has occured", string.data(), "ok", "error", 1);
+		Break();
 	}
-
+	
+#if defined(FE_PLAT_WINDOWS)
 	void Break()
 	{
-#if defined(FE_PLAT_WINDOWS)
-		if (!IsDebuggerPresent()) return;
-#endif
+		if (IsDebuggerPresent()) psnip_trap();
+	}
+#else
+	void Break()
+	{
 		psnip_trap();
 	}
+#endif
 }

@@ -3,6 +3,7 @@
 #include <optional>
 #include <unordered_map>
 #include <string>
+#include <unordered_set>
 
 #include <glad/gl.h>
 
@@ -13,6 +14,7 @@
 static struct feRenderUtilLoadedFlags final
 {
 	std::optional<unsigned char> version;
+	std::optional<std::unordered_set<std::string>> extensions;
 } s_Flags;
 
 static std::string GetOpenGLString(unsigned int value)
@@ -55,6 +57,12 @@ static std::string GetOpenGLString(unsigned int value)
 
 static void OpenGLMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)
 {
+	// API PERFORMANCE MEDIUM 131219
+	// Program/Shader state performance warning
+	// x is being recompiled based on GL state
+	// -- Ignore --
+	if (id == 131218) return;
+	
 	feLog::Error("{}, {}, {}, {}: {}", GetOpenGLString(source), GetOpenGLString(type), GetOpenGLString(severity), GetOpenGLString(id), message);
 	if (severity == GL_DEBUG_SEVERITY_HIGH) feLog::Break();
 }
@@ -97,7 +105,6 @@ namespace feRenderUtil
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-		glEnable(GL_FRAMEBUFFER_SRGB);
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
 	}
@@ -140,5 +147,30 @@ namespace feRenderUtil
 
 			glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
 		}
+	}
+
+	static std::string s_TempExtensionContainer(64, '!');
+
+	bool IsExtensionSupported(std::string_view name)
+	{
+		if (!s_Flags.extensions)
+		{
+			// Load extensions if not cached
+			GLint numExt;
+			glGetIntegerv(GL_NUM_EXTENSIONS, &numExt);
+
+			std::unordered_set<std::string> set;
+			set.reserve(numExt);
+
+			for (int i = 0; i < numExt; ++i)
+				set.emplace((const char*) glGetStringi(GL_EXTENSIONS, i));
+
+			s_Flags.extensions = std::move(set);
+		}
+
+		std::unordered_set<std::string>& cache = s_Flags.extensions.value();
+		s_TempExtensionContainer = name;
+
+		return cache.find(s_TempExtensionContainer) != cache.end();
 	}
 };
